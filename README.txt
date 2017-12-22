@@ -18,10 +18,10 @@ The program produces two outputs:
 
 -“results.dat” has 4 columns. The 1st column is only an index n indicating the configuration. The remaining 3 columns are the projections of the nth configuration on the first 3 principal components, respectively. 
 
--“norm_eigen.dat” contains the normalized eigenvalues of the principal components ordered from highest to lowest. These quantities indicate how much of the variance is contained on each principal components (the higher the variance the more the information).
+-“norm_eigen.dat” contains the normalized eigenvalues of the principal components ordered from highest to lowest. These quantities indicate how much of the variance is contained on each principal component (the higher the variance the more the information).
 
 **** IMAGES ****
-I also put images:
+I also put two images:
 
 -“2PC.eps” is a 2d plot of the projections of the configurations on the first 2 principal components. Points are colored according to the temperature.
 
