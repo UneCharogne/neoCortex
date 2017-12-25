@@ -27,35 +27,34 @@ class Node {
   
   public:
     //CONSTRUCTORS
-    Node(void) {
-      parent = null;
-      children = std::vector<Node*>(void);
-      
-      state = GameState(void);
-      
-      n = 0;
-      w = 0;
-    }
+    Node(GameState, Node*, std::vector<Node*>);
+    Node(Node*, std::vector<Node*>);
+    Node(void);
     
-    Node(Node* Parent, std::vector Children) {
-      parent = Parent;
-      children = Children;
-      
-      state = GameState();
-      
-      n = 0;
-      w = 0;
-    }
+  
+    //SET GET METHODS
+    void setParent(Node* parent);
+    Node* getParent(void);
+  
+    void addChild(Node* child);
+    void addChildren(std::vector<Node*> children);
+    Node* getRandomChild(void);
+    Node* getBestChild(void);
     
-    Node(GameState State, Node* Parent, std::vector Children) {
-      parent = Parent;
-      children = Children;
-      
-      state = State;
-      
-      n = 0;
-      w = 0;
-    }
+    double getUCT(void);  
+}
+  
+    
+Node(GameState state, Node* parent, std::vector<Node*> children) : parent(parent), children(children), state(state) {
+  this.n = 0;
+  this.w = 0;
+}
+
+
+Node::Node(Node* parent, std::vector<Node*> children) : Node(GameState(), parent, children) {}
+
+
+Node::Node(void) : Node(null, std::vector<Node*>()) {}
  
       
     
