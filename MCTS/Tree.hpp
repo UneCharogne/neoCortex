@@ -1,7 +1,10 @@
 #include <vector>
 #include <random>
 #include <stdexcept>
+#include <cmath>
+#include <cfloat>
 #include "Game.hpp"
+#include "MCTS.hpp"
 
 
 
@@ -145,8 +148,9 @@ Node* Node::getBestChild(void) {
     //Otherwise, sort them and then return the last one
     this.sortChildren();
     return this.children[this.children.size() - 1];
+  }
 }
-  
+
   
 void setChildrenSorted(bool childrenSorted) {
   this.childrenSorted = childrenSorted;
@@ -178,13 +182,21 @@ int getNumberOfChildren(void) {
 }
 
 
+//MCTS
 double getUCT(void) {
   return this.UCT;
 }
 
 
 bool isLeaf(void) {
-  return this.state.isFinalState();
+  if(this.children.size() == 0)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
 }
 
 
@@ -194,7 +206,7 @@ void buildChildren(void) {
   
   //Get the legal moves from the current state
   legalMoves = this.state.getLegalMoves();
- 
+  
   if(legalMoves.size() != 0)
   {
     //Consequently build the array of children
@@ -207,7 +219,7 @@ void buildChildren(void) {
   }
   else
   {
-    throw std::runtime_error("Trying to build the children of a final state.");
+    throw std::runtime_error("Trying to build the children of a state with no legal moves.");
   }
 }
 
@@ -215,8 +227,8 @@ void buildChildren(void) {
 void sortChildren(void)
 {
   sort(this.children.begin(), this.children.end(), CompareNodes());
-  
-  this.setChildrenSorted(true);
+
+  this.childrenSorted = true;
 }
   
   
@@ -224,19 +236,58 @@ void updateUCT(void)
 {
   Node* parent;
   
-  //Get the node's parent
-  parent = this.getParent();
-  
-  //If it is a legitimate node
-  if(this.getParent() != null)
+  //If the node's parent is a legitimate node
+  if(this.parent != null)
   {
+    //In general, the parent's children won't be sorted anymore once the UCT is computed
+    this.parent.setChildrenSorted(false);
+    
     //Check if there are any visit of the node
-    if(this.
-       
-      //Otherwise use DBL MX
-       
-       
-       //Then set that the parent is not sorted anymore
+    if(this.n != 0)
+    {
+      //Compute UCT
+      return ((this.w / this.n) + MCTS::Cp * sqrt(2.f * (log(this.parent.getNumberOfVisits()) / this.n)));
+    }
+    else
+    {
+      //Tecnically, UCT in this case is infinitely big. We can just use the biggest possible double number.
+      return DBL_MAX;
+    }
+  }
+  else
+  {
+    throw std::runtime_error("Calculating the UCT of a node with a NULL parent (probably a root node).");
+  }
+}
+
+
+
+
+
+
+
+
+//TREE
+class Tree {
+ private:
+  Node* root;
+  
+  
+ public:
+  //CONSTRUCTORS
+  Tree(Node*);
+  Tree(void);
+  
+  //SET/GET NODE
+  void setRoot(Node*)
+  Node* getRoot(void);
+}
+  
+
+  
+
+  
+    
       
     
     
