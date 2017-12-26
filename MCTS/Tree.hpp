@@ -256,7 +256,7 @@ void Node::updateUCT(void)
   }
   else
   {
-    throw std::runtime_error("Calculating the UCT of a node with a NULL parent (probably a root node).");
+    throw std::runtime_error("Calculating the UCT of a node with a NULL parent.");
   }
 }
 
@@ -287,7 +287,7 @@ class Tree {
 //CONSTRUCTORS
 Tree::Tree(Node* root) : root(root) {}
 
-Tree::Tree(void) : root((Node*)null) {}
+Tree::Tree(void) : root(new Node()) {}
 
 
 //SET/GET METHODS
