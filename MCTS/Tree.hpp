@@ -89,7 +89,7 @@ struct CompareNodes {
 Node::Node(GameState state, Node* parent)  : parent(parent), state(state) {
   this.n = 0;
   this.w = 0;
-  this.UCT = 0.f;
+  this.UCT = DBL_MAX;
 }
 
 Node::Node(GameState state) : Node(state, (Node*)null) {}
