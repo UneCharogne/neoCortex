@@ -10,7 +10,7 @@
 
 class MCTS {
   private:
-    Tree tree; //When we initialize, we also need to add the first layer of children (if not added already)
+    Tree tree; 
   
   
   public:
