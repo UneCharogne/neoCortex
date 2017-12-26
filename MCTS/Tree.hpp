@@ -152,43 +152,43 @@ Node* Node::getBestChild(void) {
 }
 
   
-void setChildrenSorted(bool childrenSorted) {
+void Node::setChildrenSorted(bool childrenSorted) {
   this.childrenSorted = childrenSorted;
 }
   
   
-bool areChildrenSorted(void) {
+bool Node::areChildrenSorted(void) {
   return this.childrenSorted;
 }
   
 
-void increaseNumberOfVisits(void) {
+void Node::increaseNumberOfVisits(void) {
   this.n++;
 }
 
 
-int getNumberOfVisits(void) {
+int Node::getNumberOfVisits(void) {
   return this.n;
 }
   
 
-void increaseReward(double reward) {
+void Node::increaseReward(double reward) {
   this.reward += reward;
 }
 
 
-int getNumberOfChildren(void) {
+int Node::getNumberOfChildren(void) {
   return this.children.size();
 }
 
 
 //MCTS
-double getUCT(void) {
+double Node::getUCT(void) {
   return this.UCT;
 }
 
 
-bool isLeaf(void) {
+bool Node::isLeaf(void) {
   if(this.children.size() == 0)
   {
     return true;
@@ -200,7 +200,7 @@ bool isLeaf(void) {
 }
 
 
-void buildChildren(void) {
+void Node::buildChildren(void) {
   std::vector<GameState> legalMoves;
   std::vector<Node*> newChildren;
   
@@ -224,7 +224,7 @@ void buildChildren(void) {
 }
 
 
-void sortChildren(void)
+void Node::sortChildren(void)
 {
   sort(this.children.begin(), this.children.end(), CompareNodes());
 
@@ -232,7 +232,7 @@ void sortChildren(void)
 }
   
   
-void updateUCT(void)
+void Node::updateUCT(void)
 {
   Node* parent;
   
@@ -279,8 +279,25 @@ class Tree {
   Tree(void);
   
   //SET/GET NODE
-  void setRoot(Node*)
+  void setRoot(Node*);
   Node* getRoot(void);
+}
+
+
+//CONSTRUCTORS
+Tree::Tree(Node* root) : root(root) {}
+
+Tree::Tree(void) : root((Node*)null) {}
+
+
+//SET/GET METHODS
+void Tree::setRoot(Node* root) {
+  this.root = root;
+}
+
+
+Node* Node::getRoot(void) {
+  return this.root;
 }
   
 
