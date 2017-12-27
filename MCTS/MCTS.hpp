@@ -35,9 +35,7 @@ class MCTS {
     
     //Gameplay
     void playMove(GameState);
-    //Force a move from outside (as an example, played by the opponent). This may be tricky. For instance, when we do this, let's be sure that the following layer of children has been generated, otherwise do that (unless it is a final state)
     state playBestMove(void);
-    //Just pick the child with the highest UCT from the current tree's root
 }
 
 
