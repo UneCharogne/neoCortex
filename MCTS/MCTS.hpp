@@ -16,6 +16,7 @@ class MCTS {
   public:
     //CONSTRUCTORS
     MCTS(Tree);
+    MCTS(GameState);
     MCTS(void);
   
   
@@ -23,8 +24,7 @@ class MCTS {
     void sweep(void);
     
     Node* selection(Node*);
-    //In the selection, we get down picking time by time the highest UCT, until we reach a leaf. We return the pointer to the leaf.
-
+   
     Node* expansion(Node*);
     //We are now in a leaf. If this leaf has never been visited before, do nothing. Else, if it is a final state, do nothing. Else, expand the tree adding a list of children. Then, pick a random child. Return the state (either the origianal one if nothing happend or the randomly picked one).
   
@@ -41,3 +41,48 @@ class MCTS {
     state playBestMove(void);
     //Just pick the child with the highest UCT from the current tree's root
 }
+
+
+MCTS::MCTS(Tree tree) {
+  this->tree = tree;
+}
+
+MCTS::MCTS(GameState state) : tree(Tree(state)) { }
+
+MCTS::MCTS() : tree(Tree()) {}
+
+
+//In the selection step, a path along the tree is followed through the states of highest UCT, a leaf is reached. The pointer to the (most promising) leaf is returned.
+Node* MCTS::selection(Node* currentNode) {
+  Node* nextNode;
+  
+  //Until a leaf is not reached
+  while(currentNode->isLeaf() == NULL) {
+    //Pick the most promising node of the current node as the next node
+    nextNode = currentNode->getBestChild();
+    
+    currentNode = nextNode;
+  }
+  
+  return currentNode;
+}
+
+
+//In the expansion, the tree is eventually expanded 
+Node* MCTS::expansion(Node* currentNode) {  
+  //The current node is a leaf state.
+  //If it has never been visited before, nothing is done.
+  if(currentNode->getNumberOfVisits != 0) {
+    //Otherwise, if it is a final state, also nothing is done
+    if(currentNode->getState().isFinalState() == false) {
+      //Otherwise, the tree is expanded by adding a list of children
+      currentNode->buildChildren();
+      
+      //And return a random child
+      return currentNode->getRandomChild();
+    }
+  }
+  
+  return currentNode;
+}
+  
