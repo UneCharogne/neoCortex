@@ -54,6 +54,7 @@ class Node {
     void addChildren(std::vector<Node*>);
     Node* getRandomChild(void);
     Node* getBestChild(void);
+    Node* getChildByState(GameState);
   
     void setChildrenSorted(bool);
     bool areChildrenSorted(void);
@@ -151,6 +152,19 @@ Node* Node::getBestChild(void) {
     this.sortChildren();
     return this->children[this.children.size() - 1];
   }
+}
+
+Node* Node::getChildByState(GameState state) {
+  //Cycle over all the children until one with a state matching the input one is found
+  for(int i=0;i<this->children.size();i++) {
+    if(this->children[i]->getState() == state) {
+      return this->children[i];
+    }
+  }
+  
+  //If no matching state is found, throw an exception and return a null vector
+  throw std::runtime_error("No child with a state matching the searched one has been found.");
+  return NULL;
 }
 
   
