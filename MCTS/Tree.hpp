@@ -276,6 +276,7 @@ class Tree {
  public:
   //CONSTRUCTORS
   Tree(Node*);
+  Tree(GameState state);
   Tree(void);
   
   //SET/GET NODE
@@ -286,6 +287,8 @@ class Tree {
 
 //CONSTRUCTORS
 Tree::Tree(Node* root) : root(root) {}
+
+Tree::Tree(GameState state) : root(new Node(state)) {}
 
 Tree::Tree(void) : root(new Node()) {}
 
