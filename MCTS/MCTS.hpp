@@ -26,10 +26,8 @@ class MCTS {
     Node* selection(Node*);
    
     Node* expansion(Node*);
-    //We are now in a leaf. If this leaf has never been visited before, do nothing. Else, if it is a final state, do nothing. Else, expand the tree adding a list of children. Then, pick a random child. Return the state (either the origianal one if nothing happend or the randomly picked one).
   
     double simulation(Node*);
-    //Do a simulation from the leaf we are in (return the reward)
     
     void backPropagation(Node*, double);
     //Backpropagate the reward (return nothing)
@@ -84,5 +82,45 @@ Node* MCTS::expansion(Node* currentNode) {
   }
   
   return currentNode;
+}
+
+
+//A simulation is performed from the current node, and the reward is returned
+double Node* MCTS::simulation(Node* currentNode, double reward) {
+  double reward;
+  
+  //A simulation is performed from the current game state, and the reward is returned
+  return currentNode->getState().simulateGame();
+}
+
+
+//The result of the simulation from the leaf is backpropagated across the tree
+void MCTS::backPropagation(Node* currentNode, double) {
+  do {
+    //Update the state of the node
+    currentNode->increaseNumberOfVisits();
+    currentNode->increaseReward(reward);
+    currentNode->updateUCT();
+    
+    //And then move to its parent
+    currentNode = currentNode->getParent();
+    
+    //Until a non-legitimate (NULL) parent is reached
+  } while (currentNode != NULL);    
+}
+
+
+void MCTS::sweep(void) {
+  Node* currentNode;
+  double reward;
+  
+  //Starting from the root of the tree
+  currentNode = this->tree.root;
+  
+  //Perform the series of operation of the MCTS sweep
+  currentNode = this->selection(currentNode);
+  currentNode = this->expansion(currentNode);
+  reward = this->simulation(currentNode);
+  this->backPropagation(currentNode, reward);
 }
   
