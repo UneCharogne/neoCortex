@@ -115,12 +115,29 @@ void MCTS::sweep(void) {
   double reward;
   
   //Starting from the root of the tree
-  currentNode = this->tree.root;
+  currentNode = this->tree.getRoot();
   
   //Perform the series of operation of the MCTS sweep
   currentNode = this->selection(currentNode);
   currentNode = this->expansion(currentNode);
   reward = this->simulation(currentNode);
   this->backPropagation(currentNode, reward);
+}
+
+
+//Force to play a move (typically, a move played by the opponent in his turn)
+void MCTS::playMove(GameState state) {
+  //Look for the move to play in all the children of the current state
+  this->tree.setRoot(this->tree.getRoot()->getChildByState(state));
+}
+
+
+//Play the best move given the current exploration of the tree
+GameState MCTS::playBestMove(void) {
+  //Pick the best child node of the current root, and select it as the new root
+  this->tree.setRoot(this->tree.getRoot()->getBestChild());
+  
+  //And return the corresponding state
+  return this->tree.getRoot()->getState();
 }
   
