@@ -94,7 +94,7 @@ Node::Node(GameState state, Node* parent)  : parent(parent), state(state) {
   this->UCT = DBL_MAX;
 }
 
-Node::Node(GameState state) : Node(state, (Node*)null) {}
+Node::Node(GameState state) : Node(state, (Node*)NULL) {}
 
 Node::Node(void) : Node(GameState()) {}
 
@@ -244,7 +244,7 @@ void Node::updateUCT(void)
   Node* parent;
   
   //If the node's parent is a legitimate node
-  if(this->parent != null)
+  if(this->parent != NULL)
   {
     //In general, the parent's children won't be sorted anymore once the UCT is computed
     this->parent->setChildrenSorted(false);
