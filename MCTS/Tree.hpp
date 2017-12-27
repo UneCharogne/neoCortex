@@ -58,6 +58,8 @@ class Node {
     void setChildrenSorted(bool);
     bool areChildrenSorted(void);
   
+    GameState getState(void);
+  
     void increaseNumberOfVisits(void);
     int getNumberOfVisits(void);
   
@@ -159,6 +161,11 @@ void Node::setChildrenSorted(bool childrenSorted) {
   
 bool Node::areChildrenSorted(void) {
   return this.childrenSorted;
+}
+
+
+GameState Node::getState(void) {
+  return this.state;
 }
   
 
