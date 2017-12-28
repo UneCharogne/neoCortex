@@ -1,7 +1,8 @@
 #include <vector>
-#include <random>
+#include <algorithm>
 #include <stdexcept>
 #include <cmath>
+#include <stdlib.h>
 #include <cfloat>
 #include "Game.hpp"
 #include "MCTS.hpp"
@@ -11,7 +12,7 @@
 //NODE
 //Ordering criterium based on UCT
 struct CompareNodes {
-    bool operator()(const Node* &a, const Node* &b) const {
+    bool operator()(Node* &a, Node* &b) const {
          return a->getUCT() < b->getUCT();
     }
 };
@@ -20,7 +21,7 @@ struct CompareNodes {
 //CONSTRUCTORS
 Node::Node(GameState state, Node* parent)  : parent(parent), state(state) {
   this->n = 0;
-  this->w = 0;
+  this->reward = 0;
   this->UCT = DBL_MAX;
 }
 
@@ -35,7 +36,7 @@ void Node::setParent(Node* parent) {
 }
 
 Node* Node::getParent(void) {
-  return this.parent;
+  return this->parent;
 }
 
 void Node::addChild(Node *newChild) {
@@ -59,7 +60,7 @@ Node* Node::getRandomChild(void) {
     return NULL;
   }
   
-  return this->children[uniform_int_distribution(0,(this.children.size()-1))];
+  return this->children[std::rand()%this->children.size()];
 }
 
 Node* Node::getBestChild(void) {
@@ -78,8 +79,8 @@ Node* Node::getBestChild(void) {
   else
   {
     //Otherwise, sort them and then return the last one
-    this.sortChildren();
-    return this->children[this.children.size() - 1];
+    this->sortChildren();
+    return this->children[this->children.size() - 1];
   }
 }
 
@@ -176,7 +177,7 @@ void Node::buildChildren(void) {
 
 void Node::sortChildren(void)
 {
-  sort(this->children.begin(), this->children.end(), CompareNodes());
+  std::sort(this->children.begin(), this->children.end(), CompareNodes());
 
   this->childrenSorted = true;
 }
@@ -196,12 +197,12 @@ void Node::updateUCT(void)
     if(this->n != 0)
     {
       //Compute UCT
-      return ((this->w / this->n) + MCTS_CP * sqrt(2.f * (log(this->parent->getNumberOfVisits()) / this->n)));
+      this->UCT = ((this->reward / this->n) + MCTS_CP * sqrt(2.f * (log(this->parent->getNumberOfVisits()) / this->n)));
     }
     else
     {
       //Tecnically, UCT in this case is infinitely big. We can just use the biggest possible double number.
-      return DBL_MAX;
+      this->UCT = DBL_MAX;
     }
   }
   else
@@ -226,6 +227,6 @@ void Tree::setRoot(Node* root) {
 }
 
 
-Node* Node::getRoot(void) {
+Node* Tree::getRoot(void) {
   return this->root;
 }

@@ -1,9 +1,7 @@
-#include <vector>
-#include "Tree.hpp"
-
-
 #ifndef GAME_HPP
 #define GAME_HPP
+
+#include <vector>
 
 
 //Class representing a state of the game
@@ -48,7 +46,7 @@ class GameState {
     
     //Performs a simulation from this state, returning the reward of the simulation
     double simulateGame(void);
-}
+};
 
 
 #endif

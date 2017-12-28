@@ -1,10 +1,13 @@
-#include <vector>
-#include "Game.hpp"
-#include "MCTS.hpp"
-
-
 #ifndef TREE_HPP
 #define TREE_HPP
+
+#include <vector>
+#include "Game.hpp"
+
+
+
+
+
 
 
 
@@ -74,7 +77,7 @@ class Node {
     void sortChildren(void);
   
     void updateUCT(void);
-}
+};
 
 
 
@@ -98,7 +101,7 @@ class Tree {
   //SET/GET NODE
   void setRoot(Node*);
   Node* getRoot(void);
-}
+};
   
 
 #endif

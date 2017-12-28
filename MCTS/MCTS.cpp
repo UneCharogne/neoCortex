@@ -22,7 +22,7 @@ Node* MCTS::selection(Node* currentNode) {
   Node* nextNode;
   
   //Until a leaf is not reached
-  while(currentNode->isLeaf() == NULL) {
+  while(currentNode->isLeaf() == false) {
     //Pick the most promising node of the current node as the next node
     nextNode = currentNode->getBestChild();
     
@@ -37,7 +37,7 @@ Node* MCTS::selection(Node* currentNode) {
 Node* MCTS::expansion(Node* currentNode) {  
   //The current node is a leaf state.
   //If it has never been visited before, nothing is done.
-  if(currentNode->getNumberOfVisits != 0) {
+  if(currentNode->getNumberOfVisits() != 0) {
     //Otherwise, if it is a final state, also nothing is done
     if(currentNode->getState().isFinalState() == 0) {
       //Otherwise, the tree is expanded by adding a list of children
@@ -53,16 +53,14 @@ Node* MCTS::expansion(Node* currentNode) {
 
 
 //A simulation is performed from the current node, and the reward is returned
-double Node* MCTS::simulation(Node* currentNode, double reward) {
-  double reward;
-  
+double MCTS::simulation(Node* currentNode) {
   //A simulation is performed from the current game state, and the reward is returned
   return currentNode->getState().simulateGame();
 }
 
 
 //The result of the simulation from the leaf is backpropagated across the tree
-void MCTS::backPropagation(Node* currentNode, double) {
+void MCTS::backPropagation(Node* currentNode, double reward) {
   do {
     //Update the state of the node
     currentNode->increaseNumberOfVisits();

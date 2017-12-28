@@ -1,11 +1,15 @@
-#include "Game.hpp"
-#include "Tree.hpp"
-
 #ifndef MCTS_HPP
 #define MCTS_HPP
 
+
+#include "Game.hpp"
+#include "Tree.hpp"
+
+
 #define MCTS_CP 0.707
 
+
+//Class which performs the Monte Carlo tree search
 class MCTS {
   private:
     Tree tree; 
@@ -35,8 +39,8 @@ class MCTS {
     //Gameplay
     void playMove(GameState);
   
-    state playBestMove(void);
-}
+    GameState playBestMove(void);
+};
 
 #endif
   
