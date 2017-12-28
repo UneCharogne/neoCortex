@@ -39,7 +39,7 @@ Node* MCTS::expansion(Node* currentNode) {
   //If it has never been visited before, nothing is done.
   if(currentNode->getNumberOfVisits != 0) {
     //Otherwise, if it is a final state, also nothing is done
-    if(currentNode->getState().isFinalState() == false) {
+    if(currentNode->getState().isFinalState() == 0) {
       //Otherwise, the tree is expanded by adding a list of children
       currentNode->buildChildren();
       
