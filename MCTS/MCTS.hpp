@@ -4,6 +4,7 @@
 #ifndef MCTS_HPP
 #define MCTS_HPP
 
+#define MCTS_CP 0.707
 
 class MCTS {
   private:
