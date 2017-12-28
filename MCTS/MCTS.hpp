@@ -13,7 +13,9 @@ class MCTS {
   public:
     //CONSTRUCTORS
     MCTS(Tree);
+  
     MCTS(GameState);
+  
     MCTS(void);
   
   
@@ -27,11 +29,11 @@ class MCTS {
     double simulation(Node*);
     
     void backPropagation(Node*, double);
-    //Backpropagate the reward (return nothing)
   
     
     //Gameplay
     void playMove(GameState);
+  
     state playBestMove(void);
 }
 
