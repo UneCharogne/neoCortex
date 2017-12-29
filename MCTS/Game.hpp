@@ -17,9 +17,6 @@ class GameState {
     
     //Player that has to move (+1 white, -1 black)
     int player;
-  
-    //Value of the board (for the white)
-    int boardValue;
     
     
     
@@ -45,10 +42,6 @@ class GameState {
     }
   
   
-    //SET/GET
-    int getBoardValue(void);
-    
-    
     //Gameplay
     //Returns 0 if the state is not final, otherwise it returns the winner of the game (+1 white, -1 black)
     int isFinalState(void);
