@@ -59,10 +59,10 @@ class GameState {
 
 
 //Function that performs a single step of a move of a draught
-void moveDraught(std::vector<GameState>&, std::vector<int>&, std::vector<std::vector<int>>&, Board, int, int, int);
+void moveDraught(std::vector<GameState>&, std::vector<int>&, std::vector<int>&, Board, int, int, int);
 
 //Function that performs a single step of a move of a king
-void moveKing(std::vector<GameState>&, std::vector<int>&, std::vector<std::vector<int>>&, Board, int, int, int);
+void moveKing(std::vector<GameState>&, std::vector<int>&, std::vector<int>&, Board, int, int, int);
 
 //Function that checks if two squares are neighbours
 bool areNeighbourSquares(int, int);
