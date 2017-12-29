@@ -17,6 +17,9 @@ class GameState {
     
     //Player that has to move (+1 white, -1 black)
     int player;
+  
+    //Value of the board (for the white)
+    int boardValue;
     
     
     
@@ -40,6 +43,10 @@ class GameState {
         return false;
       }
     }
+  
+  
+    //SET/GET
+    int getBoardValue(void);
     
     
     //Gameplay
