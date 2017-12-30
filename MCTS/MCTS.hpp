@@ -8,7 +8,7 @@
 
 #define MCTS_CP 0.707
 
-#define MCTS_NUMBER_OF_SWEEPS 1000
+#define MCTS_NUMBER_OF_SWEEPS 10000
 
 
 //Class which performs the Monte Carlo tree search
