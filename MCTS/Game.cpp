@@ -18,6 +18,11 @@ double GameState::GameState getBoardValue(void) {
 }
 
 
+Board GameState::getBoard(void) {
+  return this->board;
+}
+
+
 //Checks if this is the final state
 int GameState::isFinalState(void) {
   //If the player has no more legal moves available, the opponent won
