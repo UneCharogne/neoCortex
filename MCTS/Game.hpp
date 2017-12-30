@@ -12,6 +12,8 @@ const Board STARTING_BOARD = {0,1,0,1,0,1,0,1,1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1,0,
 const std::array<int,32> BLACK_SQUARES = {1,3,5,7,8,10,12,14,17,19,21,23,24,26,28,30,33,35,37,39,40,42,44,46,49,51,53,55,56,58,60,62};
 const std::array<int,2> DIAGONALS = {7,9};
 
+#define MAX_SIMULATION_LENGTH 40
+
 
 //Class representing a state of the game
 class GameState {
