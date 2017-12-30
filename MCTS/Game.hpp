@@ -48,6 +48,10 @@ class GameState {
     }
   
   
+    //SET/GET methods
+    Board getBoard(void);
+  
+  
     //Gameplay
     //Returns 0 if the state is not final, otherwise it returns the winner of the game (+1 white, -1 black)
     int isFinalState(void);
