@@ -40,85 +40,110 @@ std::vector<GameState> GameState::getLegalMoves(void) {
     //Now, possibleMoves contains all the possible moves
     //takenPieces contain the respective number of taken pieces, and taken kings of taken kings
     //movingPiece tells if the moved piece is a draught or a king
-    //Not all moves all legal
-    //In particular, only the moves leading to the highest number of taken pieces are allowed
-    //Let's build an array of indexes
-    std::vector<int> indexes;
-    for(int i=0;i<possibleMoves.size();++i) { 
-      indexes.push_back(i); 
-    }
-
-
-    //Let's order it depending on the value of piecesTaken
-    std::sort(indexes.begin(), indexes.end(), [&](int a, int b) { return piecesTaken[a] < piecesTaken[b]; });
-    std::reverse(indexes.begin(),indexes.end());
-
-    //If the first element corresponds to zero taken pieces, then all the moves are equivalently legal
-    if(piacesTaken[indexes[0]] == 0) {
+    //First of all, let's check if there are any possible moves (and more than one in particular)
+    if(possibleMoves.size() < 2)
+    {
       std::vector<GameState> legalMoves = possibleMoves;
  
       this->legalMoves = legalMoves;
+      this->computedLegalMoves = true;
       return this->legalMoves;
     }
+    else
+    {
+      //If there are more possible moves, not all of them are in general legal
+      //In particular, only the moves leading to the highest number of taken pieces are allowed
+      //Let's build an array of indexes
+      std::vector<int> indexes;
+      for(int i=0;i<possibleMoves.size();++i) { 
+        indexes.push_back(i); 
+      }
 
-    //Otherwise, we have to limit ourselves to the ones with the maximum number of taken pieces
-    maxends=0;
-    do { maxends++; } while (piecesTaken[maxends] == piecesTaken[0]);
-    indexes.erase(indexes.begin()+maxends,indexes.end());
+
+      //Let's order it depending on the value of piecesTaken
+      std::sort(indexes.begin(), indexes.end(), [&](int a, int b) { return piecesTaken[a] < piecesTaken[b]; });
+      std::reverse(indexes.begin(),indexes.end());
+
+      //If the first element corresponds to zero taken pieces, then all the moves are equivalently legal
+      if(piacesTaken[indexes[0]] == 0) {
+        std::vector<GameState> legalMoves = possibleMoves;
+
+        this->legalMoves = legalMoves;
+        this->computedLegalMoves = true;
+        return this->legalMoves;
+      }
+
+      //Otherwise, we have to limit ourselves to the ones with the maximum number of taken pieces
+      maxends=0;
+      do { maxends++; } while (piecesTaken[maxends] == piecesTaken[0]);
+      indexes.erase(indexes.begin()+maxends,indexes.end());
 
 
-    //Then, if possible, we have to eat with the king
-    //So let's reorder the indexes based on the content of movingPiece
-    std::sort(indexes.begin(), indexes.end(), [&](int a, int b) { return movingPiece[a] < movingPiece[b]; });
-    std::reverse(indexes.begin(),indexes.end());
+      //Then, if possible, we have to eat with the king
+      //So let's reorder the indexes based on the content of movingPiece
+      std::sort(indexes.begin(), indexes.end(), [&](int a, int b) { return movingPiece[a] < movingPiece[b]; });
+      std::reverse(indexes.begin(),indexes.end());
 
-    //If the first element corresponds to a draught, then all the remaining moves are equivalently legal
-    if(movingPiece[indexes[0]] == 1) {
+      //If the first element corresponds to a draught, then all the remaining moves are equivalently legal
+      if(movingPiece[indexes[0]] == 1) {
+        std::vector<GameState> legalMoves;
+        for(int i=0;i<indexes.size();int++) {
+          legalMoves.push_back(possibleMoves[indexes[i]]);
+        }
+
+        this->legalMoves = legalMoves;
+        this->computedLegalMoves = true;
+        return this->legalMoves;
+      }
+
+      //Otherwise, we have to limit ourselves to the ones with a moved king
+      maxends=0;
+      do { maxends++; } while (movingPiece[maxends] == 2);
+      indexes.erase(indexes.begin()+maxends,indexes.end());
+
+
+      //In the end, we have to eat the highest possible number of kings
+      //So let's reorder the indexes based on the content of kingsTaken
+      std::sort(indexes.begin(), indexes.end(), [&](int a, int b) { return kingsTaken[a] < kingsTaken[b]; });
+      std::reverse(indexes.begin(),indexes.end());
+
+      //If the first element corresponds to zero kings taken, then all the remaining moves are equivalently legal
+      if(kingsTaken[indexes[0]] == 0) {
+        std::vector<GameState> legalMoves;
+        for(int i=0;i<indexes.size();int++) {
+          legalMoves.push_back(possibleMoves[indexes[i]]);
+        }
+
+        this->legalMoves = legalMoves;
+        this->computedLegalMoves = true;
+        return this->legalMoves;
+      }
+
+      //Otherwise, we have to limit ourselves to the ones with the highest number of taken kings
+      maxends=0;
+      do { maxends++; } while (kingsTaken[maxends] == kingsTaken[0]);
+      indexes.erase(indexes.begin()+maxends,indexes.end());
+
+
+      //In the end, we can return the remaining legal moves
       std::vector<GameState> legalMoves;
       for(int i=0;i<indexes.size();int++) {
         legalMoves.push_back(possibleMoves[indexes[i]]);
       }
- 
+
       this->legalMoves = legalMoves;
+      this->computedLegalMoves = true;
       return this->legalMoves;
     }
-
-    //Otherwise, we have to limit ourselves to the ones with a moved king
-    maxends=0;
-    do { maxends++; } while (movingPiece[maxends] == 2);
-    indexes.erase(indexes.begin()+maxends,indexes.end());
+  }
+}
 
 
-    //In the end, we have to eat the highest possible number of kings
-    //So let's reorder the indexes based on the content of kingsTaken
-    std::sort(indexes.begin(), indexes.end(), [&](int a, int b) { return kingsTaken[a] < kingsTaken[b]; });
-    std::reverse(indexes.begin(),indexes.end());
-
-    //If the first element corresponds to zero kings taken, then all the remaining moves are equivalently legal
-    if(kingsTaken[indexes[0]] == 0) {
-      std::vector<GameState> legalMoves;
-      for(int i=0;i<indexes.size();int++) {
-        legalMoves.push_back(possibleMoves[indexes[i]]);
-      }
- 
-      this->legalMoves = legalMoves;
-      return this->legalMoves;
-    }
-
-    //Otherwise, we have to limit ourselves to the ones with the highest number of taken kings
-    maxends=0;
-    do { maxends++; } while (kingsTaken[maxends] == kingsTaken[0]);
-    indexes.erase(indexes.begin()+maxends,indexes.end());
-
-
-    //In the end, we can return the remaining legal moves
-    std::vector<GameState> legalMoves;
-    for(int i=0;i<indexes.size();int++) {
-      legalMoves.push_back(possibleMoves[indexes[i]]);
-    }
- 
-    this->legalMoves = legalMoves;
-    return this->legalMoves;
+int GameState::isFinalState(void) {
+  //If the player has no more legal moves available, the opponent won
+  if(this->getLegalMoves().size() == 0)
+  {
+    return (-1 * player);
   }
 }
 
