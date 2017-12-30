@@ -6,6 +6,30 @@ GameState::GameState(Board board, int player) : board(board), player(player), co
 GameState::GameState(void) : GameState(STARTING_BOARD, 1) {}
 
 
+double GameState::GameState getBoardValue(void) {
+  double total = 0;
+  
+  for (Board::iterator it = this->board.begin(); it != this->board.end(); ++it) {
+    total += (double)(*it);
+  }
+  
+  return ((total + 24.)/48.);
+}
+
+
+//Checks if this is the final state
+int GameState::isFinalState(void) {
+  //If the player has no more legal moves available, the opponent won
+  if(this->getLegalMoves().size() == 0)
+  {
+    return (-1 * player);
+  }
+  
+  //Otherwise, the game is not over yet
+  return 0;
+}
+
+
 //All the legal moves from this state have to be built
 std::vector<GameState> GameState::getLegalMoves(void) {
   std::vector<GameState> possibleMoves;
@@ -139,11 +163,34 @@ std::vector<GameState> GameState::getLegalMoves(void) {
 }
 
 
-int GameState::isFinalState(void) {
-  //If the player has no more legal moves available, the opponent won
-  if(this->getLegalMoves().size() == 0)
+//Simulates a random draughts game starting from the game state
+double GameState::simulateGame(void) {
+  //Get the starting state
+  GameState currentState = this->state;
+  //and check if it is final
+  int isFinal = currentState.isFinal();
+  
+  //If it's not, perform a random simulation starting from the current state
+  int Nmoves = 0;
+  while((isFinal == 0) && (Nmoves < MAX_SIMULATION_LENGTH)) {
+    //Get the possible legal moves from the current state
+    std::vector<GameState> legalMoves = currentState.getLegalMoves();
+    
+    //Pick a random one
+    currentState = legalMoves[std::rand()%legalMoves.size()];
+    
+    //And check if it's final
+    final = currentState.isFinal();
+  }
+  
+  //Then, return the reward
+  if(final != 0)
   {
-    return (-1 * player);
+    return (double)final;
+  }
+  else
+  {
+    return currentState.getValue();
   }
 }
 
