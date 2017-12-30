@@ -1,4 +1,5 @@
 #include <vector>
+#include <stdlib.h>
 #include "Game.hpp"
 
 GameState::GameState(Board board, int player) : board(board), player(player), computedLegalMoves(false) { }
