@@ -6,6 +6,12 @@
 
 #include <stdlib.h>
 #include <time.h>
+#include <string>
+#include <iostream>
+#include <fstream>
+
+
+void printBoard(Board, std::string, bool);
 
 
 int main() {
@@ -16,15 +22,19 @@ int main() {
 	
 	//Get the starting state
 	currentState = GameState(STARTING_BOARD, 1);
+        printBoard(currentState.getBoard(), "moves.dat", true);
 	
 	//Initialize two MCTS players
 	std::vector<MCTS> players;
-	players.push_back(MCTS(currentState));
-	players.push_back(MCTS(currentState));
+	players.push_back(MCTS(currentState, 1));
+	players.push_back(MCTS(currentState, -1));
 	
-	while(currentState.isFinal() == 0) {
+	int Nmoves = 0;
+	while(currentState.isFinalState() == 0) {
+		std::cout << "Playing move n. " << Nmoves << "\n";
 		for(int i=0;i<MCTS_NUMBER_OF_SWEEPS;i++)
 		{
+			//std::cout << "Sweep number " << i << ".\n";
 			players[0].sweep();
 			players[1].sweep();
 		}
@@ -33,24 +43,31 @@ int main() {
 		player = (player + 1) % 2;
 		players[player].playMove(currentState);
 		
-		printBoard(currentState.getBoard());
+		printBoard(currentState.getBoard(), "moves.dat", false);
+
+		Nmoves++;
 	}
 	
-	if(currentState.isFinal() == 1)
+	if(currentState.isFinalState() == 1)
 	{
-		cout << "White won!\n";
+		std::cout << "White won!\n";
 	}
 	else
 	{
-		cout << "Black won!\n";
+		std::cout << "Black won!\n";
 	}
 }
 
 
-void printBoard(Board board, string filename) {
-	ofstream myfile;
+void printBoard(Board board, std::string filename, bool firstmove) {
+	std::ofstream myfile;
 	
-	myfile.open(filename, ios::out | ios::app);
+        if(firstmove) {
+		myfile.open(filename, std::ios::out | std::ios::trunc);
+	}
+	else {
+		myfile.open(filename, std::ios::out | std::ios::app);
+	}
 	
 	myfile << "\n\n";	
 	for(int j=0;j<10;j++) {

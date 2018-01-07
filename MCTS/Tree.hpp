@@ -54,17 +54,20 @@ class Node {
     void addChildren(std::vector<Node*>);
     Node* getRandomChild(void);
     Node* getBestChild(void);
+    Node* getChildWithHighestReward(void);
     Node* getChildByState(GameState);
   
     void setChildrenSorted(bool);
     bool areChildrenSorted(void);
   
     GameState getState(void);
+    int getPlayer(void);
   
     void increaseNumberOfVisits(void);
     int getNumberOfVisits(void);
   
     void increaseReward(double);
+    double getReward(void);
   
     int getNumberOfChildren(void);
     

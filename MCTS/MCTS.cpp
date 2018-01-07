@@ -3,24 +3,27 @@
 #include <stdexcept>
 #include <cmath>
 #include <cfloat>
+#include <iostream>
 #include "Game.hpp"
 #include "Tree.hpp"
 #include "MCTS.hpp"
 
 
-MCTS::MCTS(Tree tree) {
+MCTS::MCTS(Tree tree, int player) {
   this->tree = tree;
+  this->player = player;
 }
 
-MCTS::MCTS(GameState state) : tree(Tree(state)) { }
+MCTS::MCTS(GameState state, int player) : tree(Tree(state)), player(player) { }
 
-MCTS::MCTS() : tree(Tree()) {}
+MCTS::MCTS() : tree(Tree()), player(1) {}
 
 
 //In the selection step, a path along the tree is followed through the states of highest UCT, a leaf is reached. The pointer to the (most promising) leaf is returned.
 Node* MCTS::selection(Node* currentNode) {
+  //std::cout << "Selection.\n";
   Node* nextNode;
-  
+
   //Until a leaf is not reached
   while(currentNode->isLeaf() == false) {
     //Pick the most promising node of the current node as the next node
@@ -34,13 +37,16 @@ Node* MCTS::selection(Node* currentNode) {
 
 
 //In the expansion, the tree is eventually expanded 
-Node* MCTS::expansion(Node* currentNode) {  
+Node* MCTS::expansion(Node* currentNode) {
+  //std::cout << "Expansion.\n";
   //The current node is a leaf state.
   //If it has never been visited before, nothing is done.
   if(currentNode->getNumberOfVisits() != 0) {
+    //std::cout << "this state has been visited indeed.\n";
     //Otherwise, if it is a final state, also nothing is done
     if(currentNode->getState().isFinalState() == 0) {
       //Otherwise, the tree is expanded by adding a list of children
+      //std::cout << "Children built!\n";
       currentNode->buildChildren();
       
       //And return a random child
@@ -54,24 +60,34 @@ Node* MCTS::expansion(Node* currentNode) {
 
 //A simulation is performed from the current node, and the reward is returned
 double MCTS::simulation(Node* currentNode) {
+  //std::cout << "Simulation.\n";
   //A simulation is performed from the current game state, and the reward is returned
-  return currentNode->getState().simulateGame();
+  double reward = currentNode->getState().simulateGame();
+
+  return reward;
 }
 
 
 //The result of the simulation from the leaf is backpropagated across the tree
 void MCTS::backPropagation(Node* currentNode, double reward) {
-  do {
+  //std::cout << "BackPropagation.\n";
+  Node* parentNode = currentNode->getParent();
+  while (parentNode!= NULL) {
     //Update the state of the node
+    //std::cout << "We tried to increase the number of visits.\n";
     currentNode->increaseNumberOfVisits();
-    currentNode->increaseReward(reward);
+    currentNode->increaseReward(currentNode->getPlayer() * MCTS_OPPONENT_LEVEL * reward);
     currentNode->updateUCT();
     
     //And then move to its parent
-    currentNode = currentNode->getParent();
+    currentNode = parentNode;
+    parentNode = currentNode->getParent();
     
-    //Until a non-legitimate (NULL) parent is reached
-  } while (currentNode != NULL);    
+    //Until a starting state (with a null parent) is found
+  }
+
+  //We have therefore reached the first game of the state, for which we can just update the number of visits
+  currentNode->increaseNumberOfVisits();
 }
 
 
@@ -92,6 +108,7 @@ void MCTS::sweep(void) {
 
 //Force to play a move (typically, a move played by the opponent in his turn)
 void MCTS::playMove(GameState state) {
+  //std::cout << "Playing a given move.\n";
   //Look for the move to play in all the children of the current state
   this->tree.setRoot(this->tree.getRoot()->getChildByState(state));
 }
@@ -99,8 +116,9 @@ void MCTS::playMove(GameState state) {
 
 //Play the best move given the current exploration of the tree
 GameState MCTS::playBestMove(void) {
+  //std::cout << "Playing best move.\n";
   //Pick the best child node of the current root, and select it as the new root
-  this->tree.setRoot(this->tree.getRoot()->getBestChild());
+  this->tree.setRoot(this->tree.getRoot()->getChildWithHighestReward());
   
   //And return the corresponding state
   return this->tree.getRoot()->getState();

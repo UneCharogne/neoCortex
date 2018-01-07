@@ -4,6 +4,7 @@
 #include <cmath>
 #include <stdlib.h>
 #include <cfloat>
+#include <iostream>
 #include "Game.hpp"
 #include "MCTS.hpp"
 #include "Tree.hpp"
@@ -74,15 +75,52 @@ Node* Node::getBestChild(void) {
   if(this->areChildrenSorted())
   {
     //Return the last child
+    /*
+    std::cout << "Getting the best child among:\n";
+    for(int i=0;i<this->children.size();i++) {
+      std::cout << this->children[i]->getUCT() << "\n";
+    }
+    std::cout << "\n\n\n";
+    */
     return this->children[this->children.size() - 1];
   }
   else
   {
     //Otherwise, sort them and then return the last one
+    /*
     this->sortChildren();
+    std::cout << "Getting the best child among:\n";
+    for(int i=0;i<this->children.size();i++) {
+      std::cout << this->children[i]->getUCT() << "\n";
+    }
+    */
     return this->children[this->children.size() - 1];
   }
 }
+
+Node* Node::getChildWithHighestReward(void) {
+  Node* highestRewardedChild;
+  double highestReward;
+
+  if(this->children.size() == 0)
+  {
+    throw std::runtime_error("Trying to get a child from a node with no children.");
+    return NULL;
+  }
+  
+  //Then look for the child with the highest reward
+  highestReward = -1 * DBL_MAX;
+  for(int i=0;i<this->children.size();i++) {
+    if(this->children[i]->getReward() > highestReward) {
+      highestReward = this->children[i]->getReward();
+      highestRewardedChild = this->children[i];
+    }
+  }
+
+  return highestRewardedChild;
+}
+ 
+
 
 Node* Node::getChildByState(GameState state) {
   //Cycle over all the children until one with a state matching the input one is found
@@ -111,6 +149,11 @@ bool Node::areChildrenSorted(void) {
 GameState Node::getState(void) {
   return this->state;
 }
+
+
+int Node::getPlayer(void) {
+  return this->state.getPlayer();
+}
   
 
 void Node::increaseNumberOfVisits(void) {
@@ -125,6 +168,11 @@ int Node::getNumberOfVisits(void) {
 
 void Node::increaseReward(double reward) {
   this->reward += reward;
+}
+
+
+double Node::getReward(void) {
+  return this->reward;
 }
 
 
@@ -157,12 +205,16 @@ void Node::buildChildren(void) {
   
   //Get the legal moves from the current state
   legalMoves = this->state.getLegalMoves();
+
+  //std::cout << "We try to build the children";
   
   if(legalMoves.size() != 0)
   {
+    //std::cout << "There are legal moves from this state.\n";
     //Consequently build the array of children
     for(std::vector<GameState>::iterator state = legalMoves.begin(); state != legalMoves.end(); ++state) {
      newChildren.push_back(new Node(*state, this));
+     //std::cout << newChildren[newChildren.size()-1]->getParent();
     }
   
     //And add it to the node
