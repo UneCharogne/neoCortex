@@ -14,16 +14,14 @@
 //Class which performs the Monte Carlo tree search
 class MCTS {
   private:
-    Tree tree; 
-
-    int player;
+    Tree tree;
   
   
   public:
     //CONSTRUCTORS
-    MCTS(Tree, int);
+    MCTS(Tree);
   
-    MCTS(GameState, int);
+    MCTS(GameState);
   
     MCTS(void);
   
