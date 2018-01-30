@@ -9,14 +9,13 @@
 #include "MCTS.hpp"
 
 
-MCTS::MCTS(Tree tree, int player) {
+MCTS::MCTS(Tree tree) {
   this->tree = tree;
-  this->player = player;
 }
 
-MCTS::MCTS(GameState state, int player) : tree(Tree(state)), player(player) { }
+MCTS::MCTS(GameState state) : tree(Tree(state)) { }
 
-MCTS::MCTS() : tree(Tree()), player(1) {}
+MCTS::MCTS() : tree(Tree()) {}
 
 
 //In the selection step, a path along the tree is followed through the states of highest UCT, a leaf is reached. The pointer to the (most promising) leaf is returned.
