@@ -27,6 +27,7 @@ int GameState::isFinalState(void) {
 }
 
 
+/*
 //Total value of the board
 double GameState::getBoardValue(void) {
   double total = 0;
@@ -37,6 +38,7 @@ double GameState::getBoardValue(void) {
   
   return (total/24.);
 }
+*/
 
 
 Board GameState::getBoard(void) {
@@ -232,17 +234,8 @@ double GameState::simulateGame(void) {
     Nmoves++;
   }
   
-  //Then, return the reward
-  //return isFinal;
-  if(isFinal != 0)
-  {
-    return ((double)isFinal);
-  }
-  else
-  {
-    return currentState.getBoardValue();
-  }
-  
+  //Then, return isFinal;
+  return ((double)isFinal);  
 }
 
 
