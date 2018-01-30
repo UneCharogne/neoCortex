@@ -10,9 +10,6 @@
 
 #define MCTS_NUMBER_OF_SWEEPS 1000
 
-//-1 for opponent who plays against himself, 0 for random opponent, 1 for good opponent
-#define MCTS_OPPONENT_LEVEL 1
-
 
 //Class which performs the Monte Carlo tree search
 class MCTS {
