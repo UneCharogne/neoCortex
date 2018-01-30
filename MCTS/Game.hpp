@@ -56,7 +56,7 @@ class GameState {
   
   
     //SET/GET methods
-    double getBoardValue(void);
+    //double getBoardValue(void);
     Board getBoard(void);
 
     int getPlayer(void);
