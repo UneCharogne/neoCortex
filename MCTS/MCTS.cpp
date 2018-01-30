@@ -70,24 +70,26 @@ double MCTS::simulation(Node* currentNode) {
 
 //The result of the simulation from the leaf is backpropagated across the tree
 void MCTS::backPropagation(Node* currentNode, double reward) {
-  //std::cout << "BackPropagation.\n";
+  //We are in a leaf, from which we simulated a game that gave a certain reward
+  //First of all, we have to update the number of visits and the total reward of the current state
+  currentNode->increaseNumberOfVisits();
+  currentNode->increaseReward(currentNode->getPlayer() * reward);
+  
+  //Then, we can backpropagate the reward until the root of the tree is found, updating the UCT along our path
   Node* parentNode = currentNode->getParent();
   while (parentNode!= NULL) {
-    //Update the state of the node
-    //std::cout << "We tried to increase the number of visits.\n";
-    currentNode->increaseNumberOfVisits();
-    currentNode->increaseReward(currentNode->getPlayer() * MCTS_OPPONENT_LEVEL * reward);
+    //Update the number of visits and the reward of the parent
+    parentNode->increaseNumberOfVisits();
+    parentNode->increaseReward(currentNode->getPlayer() * MCTS_OPPONENT_LEVEL * reward);
+    
+    //And therefore the UCT of the current node
     currentNode->updateUCT();
     
     //And then move to its parent
     currentNode = parentNode;
     parentNode = currentNode->getParent();
-    
-    //Until a starting state (with a null parent) is found
+    //Until a root (with a null parent) is found, for which updating the UCT is pointless
   }
-
-  //We have therefore reached the first game of the state, for which we can just update the number of visits
-  currentNode->increaseNumberOfVisits();
 }
 
 
@@ -118,7 +120,7 @@ void MCTS::playMove(GameState state) {
 GameState MCTS::playBestMove(void) {
   //std::cout << "Playing best move.\n";
   //Pick the best child node of the current root, and select it as the new root
-  this->tree.setRoot(this->tree.getRoot()->getChildWithHighestReward());
+  this->tree.setRoot(this->tree.getRoot()->getBestChild());
   
   //And return the corresponding state
   return this->tree.getRoot()->getState();
