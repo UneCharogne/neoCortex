@@ -8,7 +8,7 @@
 
 #define MCTS_CP 0.707
 
-#define MCTS_NUMBER_OF_SWEEPS 1000
+#define MCTS_NUMBER_OF_SWEEPS 100000
 
 
 //Class which performs the Monte Carlo tree search
@@ -21,9 +21,7 @@ class MCTS {
     //CONSTRUCTORS
     MCTS(Tree);
   
-    MCTS(GameState);
-  
-    MCTS(void);
+    MCTS(GameState*);
   
   
     //MCTS
@@ -39,9 +37,9 @@ class MCTS {
   
     
     //Gameplay
-    void playMove(GameState);
+    void playMove(GameState*);
   
-    GameState playBestMove(void);
+    GameState* playBestMove(void);
 };
 
 #endif

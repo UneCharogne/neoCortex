@@ -9,13 +9,9 @@
 #include "MCTS.hpp"
 
 
-MCTS::MCTS(Tree tree) {
-  this->tree = tree;
-}
+MCTS::MCTS(Tree tree) : tree(tree) { }
 
-MCTS::MCTS(GameState state) : tree(Tree(state)) { }
-
-MCTS::MCTS() : tree(Tree()) {}
+MCTS::MCTS(GameState *state) : tree(Tree(state)) { }
 
 
 //In the selection step, a path along the tree is followed through the states of highest UCT, a leaf is reached. The pointer to the (most promising) leaf is returned.
@@ -43,7 +39,7 @@ Node* MCTS::expansion(Node* currentNode) {
   if(currentNode->getNumberOfVisits() != 0) {
     //std::cout << "this state has been visited indeed.\n";
     //Otherwise, if it is a final state, also nothing is done
-    if(currentNode->getState().isFinalState() == 0) {
+    if(currentNode->getState()->isFinalState() == false) {
       //Otherwise, the tree is expanded by adding a list of children
       //std::cout << "Children built!\n";
       currentNode->buildChildren();
@@ -61,7 +57,7 @@ Node* MCTS::expansion(Node* currentNode) {
 double MCTS::simulation(Node* currentNode) {
   //std::cout << "Simulation.\n";
   //A simulation is performed from the current game state, and the reward is returned
-  double reward = currentNode->getState().simulateGame();
+  int reward = currentNode->getState()->simulateGame();
 
   return reward;
 }
@@ -79,7 +75,7 @@ void MCTS::backPropagation(Node* currentNode, double reward) {
   while (parentNode!= NULL) {
     //Update the number of visits and the reward of the parent
     parentNode->increaseNumberOfVisits();
-    parentNode->increaseReward(currentNode->getPlayer() * MCTS_OPPONENT_LEVEL * reward);
+    parentNode->increaseReward(parentNode->getPlayer() * reward);
     
     //And therefore the UCT of the current node
     currentNode->updateUCT();
@@ -108,7 +104,7 @@ void MCTS::sweep(void) {
 
 
 //Force to play a move (typically, a move played by the opponent in his turn)
-void MCTS::playMove(GameState state) {
+void MCTS::playMove(GameState *state) {
   //std::cout << "Playing a given move.\n";
   //Look for the move to play in all the children of the current state
   this->tree.setRoot(this->tree.getRoot()->getChildByState(state));
@@ -116,7 +112,7 @@ void MCTS::playMove(GameState state) {
 
 
 //Play the best move given the current exploration of the tree
-GameState MCTS::playBestMove(void) {
+GameState* MCTS::playBestMove(void) {
   //std::cout << "Playing best move.\n";
   //Pick the best child node of the current root, and select it as the new root
   this->tree.setRoot(this->tree.getRoot()->getBestChild());

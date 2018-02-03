@@ -25,15 +25,15 @@ class Node {
     
     //GAME STATE
     //Game state associated to the node
-    GameState state;
+    GameState *state;
     
     
     //UCT
     //Number of visits of the node
     int n;
-    //Total reward starting from the node
+    //Total reward starting from the node for the player of the node
     double reward;
-    //UCT value
+    //UCT value for the player of the parent node
     double UCT;
   
   
@@ -41,9 +41,8 @@ class Node {
   
   public:
     //CONSTRUCTORS
-    Node(GameState, Node*);
-    Node(GameState);
-    Node(void);
+    Node(GameState*, Node*);
+    Node(GameState*);
     
   
     //SET GET METHODS
@@ -55,12 +54,12 @@ class Node {
     Node* getRandomChild(void);
     Node* getBestChild(void);
     Node* getChildWithHighestReward(void);
-    Node* getChildByState(GameState);
+    Node* getChildByState(GameState*);
   
     void setChildrenSorted(bool);
     bool areChildrenSorted(void);
   
-    GameState getState(void);
+    GameState* getState(void);
     int getPlayer(void);
   
     void increaseNumberOfVisits(void);
@@ -98,8 +97,7 @@ class Tree {
  public:
   //CONSTRUCTORS
   Tree(Node*);
-  Tree(GameState state);
-  Tree(void);
+  Tree(GameState*);
   
   //SET/GET NODE
   void setRoot(Node*);

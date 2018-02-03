@@ -20,15 +20,13 @@ struct CompareNodes {
   
    
 //CONSTRUCTORS
-Node::Node(GameState state, Node* parent)  : parent(parent), state(state) {
+Node::Node(GameState *state, Node* parent)  : parent(parent), state(state) {
   this->n = 0;
   this->reward = 0;
   this->UCT = DBL_MAX;
 }
 
-Node::Node(GameState state) : Node(state, (Node*)NULL) {}
-
-Node::Node(void) : Node(GameState()) {}
+Node::Node(GameState *state) : Node(state, (Node*)NULL) {}
 
 
 //SET/GET METHODS
@@ -78,22 +76,26 @@ Node* Node::getBestChild(void) {
     /*
     std::cout << "Getting the best child among:\n";
     for(int i=0;i<this->children.size();i++) {
-      std::cout << this->children[i]->getUCT() << "\n";
+        std::cout << "UCT: " << this->children[i]->getUCT() << ", ";
+        std::cout << "w: " << (this->children[i]->getReward()/this->children[i]->getNumberOfVisits()) << "\n";
     }
     std::cout << "\n\n\n";
     */
+    
     return this->children[this->children.size() - 1];
   }
   else
   {
+      /*
+      std::cout << "Getting the best child among:\n";
+      for(int i=0;i<this->children.size();i++) {
+          std::cout << "UCT: " << this->children[i]->getUCT() << ", ";
+          std::cout << "w: " << (this->children[i]->getReward()/this->children[i]->getNumberOfVisits()) << "\n";
+      }
+      std::cout << "\n\n\n";
+      */
     //Otherwise, sort them and then return the last one
-    /*
     this->sortChildren();
-    std::cout << "Getting the best child among:\n";
-    for(int i=0;i<this->children.size();i++) {
-      std::cout << this->children[i]->getUCT() << "\n";
-    }
-    */
     return this->children[this->children.size() - 1];
   }
 }
@@ -122,10 +124,10 @@ Node* Node::getChildWithHighestReward(void) {
  
 
 
-Node* Node::getChildByState(GameState state) {
+Node* Node::getChildByState(GameState *state) {
   //Cycle over all the children until one with a state matching the input one is found
   for(int i=0;i<this->children.size();i++) {
-    if(this->children[i]->getState() == state) {
+    if((*this->children[i]->getState()) == (*state)) {
       return this->children[i];
     }
   }
@@ -146,13 +148,13 @@ bool Node::areChildrenSorted(void) {
 }
 
 
-GameState Node::getState(void) {
+GameState* Node::getState(void) {
   return this->state;
 }
 
 
 int Node::getPlayer(void) {
-  return this->state.getPlayer();
+  return this->state->getPlayer();
 }
   
 
@@ -200,11 +202,11 @@ bool Node::isLeaf(void) {
 
 
 void Node::buildChildren(void) {
-  std::vector<GameState> legalMoves;
+  std::vector<Move> legalMoves;
   std::vector<Node*> newChildren;
   
   //Get the legal moves from the current state
-  legalMoves = this->state.getLegalMoves();
+  legalMoves = this->state->getLegalMoves();
 
   //std::cout << "We try to build the children";
   
@@ -212,8 +214,8 @@ void Node::buildChildren(void) {
   {
     //std::cout << "There are legal moves from this state.\n";
     //Consequently build the array of children
-    for(std::vector<GameState>::iterator state = legalMoves.begin(); state != legalMoves.end(); ++state) {
-     newChildren.push_back(new Node(*state, this));
+    for(std::vector<Move>::iterator move = legalMoves.begin(); move != legalMoves.end(); ++move) {
+     newChildren.push_back(new Node((*move).finalState, this));
      //std::cout << newChildren[newChildren.size()-1]->getParent();
     }
   
@@ -249,7 +251,7 @@ void Node::updateUCT(void)
     if(this->n != 0)
     {
       //Compute UCT
-      this->UCT = ((this->reward / this->n) + MCTS_CP * sqrt(2.f * (log(this->parent->getNumberOfVisits()) / this->n)));
+      this->UCT = (((-1 * this->reward) / this->n) + MCTS_CP * sqrt(2.f * (log(this->parent->getNumberOfVisits()) / this->n)));
     }
     else
     {
@@ -266,15 +268,13 @@ void Node::updateUCT(void)
 
 //TREE
 //CONSTRUCTORS
-Tree::Tree(Node* root) : root(root) {}
+Tree::Tree(Node *root) : root(root) {}
 
-Tree::Tree(GameState state) : root(new Node(state)) {}
-
-Tree::Tree(void) : root(new Node()) {}
+Tree::Tree(GameState *state) : root(new Node(state)) {}
 
 
 //SET/GET METHODS
-void Tree::setRoot(Node* root) {
+void Tree::setRoot(Node *root) {
   this->root = root;
 }
 
