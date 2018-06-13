@@ -52,6 +52,10 @@ void Node::addChildren(std::vector<Node*> newChildren) {
   this->sortChildren();
 }
 
+std::vector<Node*> Node::getChildren(void) {
+  return this->children;
+}
+
 Node* Node::getRandomChild(void) {
   if(this->children.size() == 0)
   {
@@ -73,27 +77,10 @@ Node* Node::getBestChild(void) {
   if(this->areChildrenSorted())
   {
     //Return the last child
-    /*
-    std::cout << "Getting the best child among:\n";
-    for(int i=0;i<this->children.size();i++) {
-        std::cout << "UCT: " << this->children[i]->getUCT() << ", ";
-        std::cout << "w: " << (this->children[i]->getReward()/this->children[i]->getNumberOfVisits()) << "\n";
-    }
-    std::cout << "\n\n\n";
-    */
-    
     return this->children[this->children.size() - 1];
   }
   else
   {
-      /*
-      std::cout << "Getting the best child among:\n";
-      for(int i=0;i<this->children.size();i++) {
-          std::cout << "UCT: " << this->children[i]->getUCT() << ", ";
-          std::cout << "w: " << (this->children[i]->getReward()/this->children[i]->getNumberOfVisits()) << "\n";
-      }
-      std::cout << "\n\n\n";
-      */
     //Otherwise, sort them and then return the last one
     this->sortChildren();
     return this->children[this->children.size() - 1];
@@ -201,6 +188,39 @@ bool Node::isLeaf(void) {
 }
 
 
+void Node::cutBranch(void) {
+  std::vector<Node*>::iterator child;
+
+  child = this->children.begin();
+  while(child != this->children.end())
+  {
+    (*child)->cutBranch();
+
+    child = this->children.erase(child); 
+  }
+
+  delete this->state;
+
+  delete this;
+}
+
+
+void Node::pruneOtherBranches(Node* branchToSave) {
+  std::vector<Node*>::iterator branch;
+
+  branch = this->children.begin();
+  while(branch != this->children.end()) {
+    if((*branch) == branchToSave) {
+      ++branch;
+    }
+    else {
+      (*branch)->cutBranch();
+      branch = this->children.erase(branch);
+    }
+  }
+}
+
+
 void Node::buildChildren(void) {
   std::vector<Move> legalMoves;
   std::vector<Node*> newChildren;
@@ -281,4 +301,13 @@ void Tree::setRoot(Node *root) {
 
 Node* Tree::getRoot(void) {
   return this->root;
+}
+
+
+void Tree::deleteTree(void) {
+  while(this->root->getParent() != NULL) {
+    this->setRoot(this->root->getParent());
+  }
+
+  this->root->cutBranch();
 }

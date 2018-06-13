@@ -14,6 +14,11 @@ MCTS::MCTS(Tree tree) : tree(tree) { }
 MCTS::MCTS(GameState *state) : tree(Tree(state)) { }
 
 
+Tree MCTS::getTree(void) {
+  return this->tree;
+}
+
+
 //In the selection step, a path along the tree is followed through the states of highest UCT, a leaf is reached. The pointer to the (most promising) leaf is returned.
 Node* MCTS::selection(Node* currentNode) {
   //std::cout << "Selection.\n";
@@ -105,18 +110,22 @@ void MCTS::sweep(void) {
 
 //Force to play a move (typically, a move played by the opponent in his turn)
 void MCTS::playMove(GameState *state) {
-  //std::cout << "Playing a given move.\n";
   //Look for the move to play in all the children of the current state
-  this->tree.setRoot(this->tree.getRoot()->getChildByState(state));
+  Node* moveToPlay = this->tree.getRoot()->getChildByState(state);
+  //Prune the other branches
+  this->tree.getRoot()->pruneOtherBranches(moveToPlay);
+  //Play the move
+  this->tree.setRoot(moveToPlay);
 }
 
 
 //Play the best move given the current exploration of the tree
 GameState* MCTS::playBestMove(void) {
-  //std::cout << "Playing best move.\n";
   //Pick the best child node of the current root, and select it as the new root
-  this->tree.setRoot(this->tree.getRoot()->getBestChild());
-  
-  //And return the corresponding state
+  Node* moveToPlay = this->tree.getRoot()->getBestChild();
+  //Prune the other branches
+  this->tree.getRoot()->pruneOtherBranches(moveToPlay);
+  //Play the move
+  this->tree.setRoot(moveToPlay);
   return this->tree.getRoot()->getState();
 }

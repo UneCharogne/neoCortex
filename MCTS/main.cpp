@@ -1,4 +1,4 @@
-//To be compiled as g++ -std=c++11 -o main main.cpp MCTS.cpp Tree.cpp (then create makefile)
+//To be compiled as g++ -std=c++11 -o main main.cpp MCTS.cpp Tree.cpp
 
 #include "Game.hpp"
 #include "Tree.hpp"
@@ -17,7 +17,7 @@ int main() {
 	GameState *currentState;
 	
 	//Get the starting state
-	currentState = new DraughtsState();
+	currentState = new ChessState();
     currentState->printState();
 	
 	//Initialize two MCTS players
@@ -51,5 +51,8 @@ int main() {
     else {
         std::cout << "It's a draw!\n\n";
     }
+
+
+    neoCortex.getTree().deleteTree();
 }
 			

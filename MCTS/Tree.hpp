@@ -1,3 +1,17 @@
+/*
+    Tree.hpp:
+        Library for the definition of the tree class.
+        The tree class simply contain a root node (the node class being also defined in this library) and some set/get and cleaning routine.
+        The node class contains a pointer to the parent node, and a vector of pointers to the children nodes.
+        It also contains a pointer to the game state, and the values necessary to calculate the UCT. It also has methods necessary for the MCTS.
+
+        @author: Massimiliano Chiappini 
+        @contact: massimilianochiappini@gmail.com
+        @version: 0.2
+*/
+
+
+
 #ifndef TREE_HPP
 #define TREE_HPP
 
@@ -51,6 +65,7 @@ class Node {
   
     void addChild(Node* child);
     void addChildren(std::vector<Node*>);
+    std::vector<Node*> getChildren();
     Node* getRandomChild(void);
     Node* getBestChild(void);
     Node* getChildWithHighestReward(void);
@@ -75,6 +90,9 @@ class Node {
   
     //MCTS
     bool isLeaf(void);
+    void cutBranch(void);
+    void pruneOtherBranches(Node*);
+
     void buildChildren(void);
     void sortChildren(void);
   
@@ -102,6 +120,8 @@ class Tree {
   //SET/GET NODE
   void setRoot(Node*);
   Node* getRoot(void);
+
+  void deleteTree(void);
 };
   
 
