@@ -636,6 +636,7 @@ class MCTSL (Layer):
         """
         self.p.xavier_init_weights()
         self.v.xavier_init_weights()
+        self.update_params()
 
     def set_biases(self, biases):
         """
