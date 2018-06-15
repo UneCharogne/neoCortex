@@ -1,0 +1,32 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../inc/brian.hpp
+vector
+-
+string
+-
+math.h
+-
+
+/Users/massimilianochiappini/Documents/PhD/HardSpheroCylinders/NeuralNetwork/Brian/src/brian.cpp
+iostream
+-
+string
+-
+vector
+-
+cmath
+-
+cstdio
+-
+cstdlib
+-
+brian.hpp
+/Users/massimilianochiappini/Documents/PhD/HardSpheroCylinders/NeuralNetwork/Brian/src/brian.hpp
+
