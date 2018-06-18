@@ -652,7 +652,7 @@ class MCTSL (Layer):
         """
         self.lin.weights = weights
         self.p.set_weights(weights[0:self.n-1])
-        self.v.set_weights(weights[self.n-1])
+        self.v.set_weights(np.array([weights[self.n-1]]))
 
 
     def activate(self, previous_layer):
