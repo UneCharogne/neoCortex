@@ -17,12 +17,16 @@
 
 
 #define MAX_N_MOVES 120
-#define N_GAMES 100
+#define N_GAMES 500
 #define SHOW_GAMES 0
+
+#define N_MOVES_TO_CHANGE_TAU 4
+#define TAU_CHANGE_FACTOR 0.1
 
 
 int main() {
 	srand(time(0));
+	srand48(time(0));
 	unsigned int results[3] = {0};
 
 	GameState* currentState;
@@ -48,6 +52,10 @@ int main() {
 		
 		int Nmoves = 0;
 		while((currentState->isFinalState() == 0) && (Nmoves < MAX_N_MOVES)) {
+			if((Nmoves % N_MOVES_TO_CHANGE_TAU) == 0) {
+				MCTS_tau *= TAU_CHANGE_FACTOR;
+			}
+
 			for(int i=0;i<MCTS_NUMBER_OF_SWEEPS;i++)
 			{
 				//std::cout << "Sweep number " << i << ".\n";
@@ -64,7 +72,6 @@ int main() {
 	        Nmoves++;
 		}
 
-		neoCortex->getTree().getRoot()->printNetworkDataset();
 		neoCortex->printBoardEvaluations();
 		
 		if(currentState->getWinner() == 1)

@@ -78,7 +78,7 @@ void MCTS::backPropagation(Node* currentNode) {
     //parentNode->updateAction(parentNode->getPlayer() * v);
     
     //And therefore the UCT of the current node
-    currentNode->updateU();
+    parentNode->updateChildrenU();
     
     //And then move to its parent
     currentNode = parentNode;
@@ -146,7 +146,7 @@ void MCTS::printBoardEvaluations(void) {
     z.push_back(currentState->getPlayer() * w);
   }
 
-  for(int i=(z.size() - 1);i>=0;i--) {
+  for(int i=(z.size() - 1);i>0;i--) {
     fprintf(fpz, "%lf\n", (double)z[i]);
   }
   fclose(fpz);

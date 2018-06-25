@@ -11,6 +11,44 @@
 #include "brian.hpp"
 
 
+//Dirichlet noise functions
+double gamma1(double alpha) {
+  double umax, vmin, vmax;
+  double u, t, t1;
+
+  umax = pow((alpha/exp(1.0)), 0.5*alpha);
+  vmin = -2.0/exp(1.0);
+  vmax = 2.0*alpha/exp(1.0)/(exp(1.0)-alpha);
+  do {
+    u = (double) lrand48()/RAND_MAX;
+    u *= umax;
+    t = (double) lrand48()/RAND_MAX;
+    t = (t*(vmax-vmin)+vmin)/u;
+    t1 = exp(t/alpha);
+  } while(2.0*log(u)>(t-t1));
+  if(alpha>=0.01) {
+    return t1;
+  }
+  else {
+    return t/alpha;
+  }
+}
+
+void dirichlet(double alpha, int size, double *p) {
+  int i;
+  double norm;
+
+  norm = 0.0;
+  for(i=0; i<size; i++) {
+    *(p + i) = gamma1(alpha);
+    norm += *(p + i);
+  }
+  for(i=0; i<size; i++) {
+    *(p + i) /= norm;
+  }
+}
+
+
 //NODE
 //Ordering criterium based on Q+U
 struct CompareNodes {
@@ -199,6 +237,16 @@ int Node::getNumberOfChildrenVisits(void) {
 }
 
 
+double Node::getP(void) {
+  return this->p;
+}
+
+
+void Node::setP(double p) {
+  this->p = p;
+}
+
+
 double Node::getTotalAction(void) {
   return this->W;
 }
@@ -214,7 +262,7 @@ double Node::getU(void) {
 
 
 double Node::getPlayProbability(void) {
-  return (pow(this->n, MCTS_tau) / (pow(this->parent->getNumberOfChildrenVisits(), MCTS_tau)));
+  return (pow(this->n, (1. / MCTS_tau)) / (pow(this->parent->getNumberOfChildrenVisits(), (1. / MCTS_tau))));
 }
 
 
@@ -261,7 +309,7 @@ void Node::printNetworkDataset(void) {
 
 
   //Then, create a vector with the size of the network's output
-  int Nprobabilities = this->tree->getNetwork()->getOutputSize();
+  int Nprobabilities = (this->tree->getNetwork()->getOutputSize() - 1);
   std::vector<double> probabilities;
   //And fill it with zeroes
   for(int i=0;i<Nprobabilities;i++) {
@@ -330,11 +378,11 @@ void Node::buildChildren(void) {
   moveProbabilities = this->tree->getNetwork()->getOutput();
 
   double Normalization = 0;
-  for(int i=0;i<moveProbabilities.size();i++) {
+  for(int i=0;i<(moveProbabilities.size() - 1);i++) {
     moveProbabilities[i] = exp(moveProbabilities[i]);
     Normalization += moveProbabilities[i];
   }
-  for(int i=0;i<moveProbabilities.size();i++) {
+  for(int i=0;i<(moveProbabilities.size() - 1);i++) {
     moveProbabilities[i] /= Normalization;
   }
 
@@ -344,14 +392,44 @@ void Node::buildChildren(void) {
   
   if(legalMoves.size() != 0)
   {
-    //std::cout << "There are legal moves from this state.\n";
     //Consequently build the array of children
-    for(std::vector<Move>::iterator move = legalMoves.begin(); move != legalMoves.end(); ++move) {
-     newChildren.push_back(new Node((*move).finalState, this, this->tree, moveProbabilities[(*move).id], (*move).id));
+    if(this == this->tree->getRoot()) {
+      double *noises;
+
+      if((noises = (double*)malloc(legalMoves.size() * sizeof(double))) == NULL) {
+        std::cout << "Error allocating the memory for the dirichlet noises, program will be arrested.\n";
+        exit(EXIT_FAILURE);
+      }
+
+      dirichlet(MCTS_ALPHA, legalMoves.size(), noises);
+
+      int i = 0;
+      for(std::vector<Move>::iterator move = legalMoves.begin(); move != legalMoves.end(); ++move) {
+       newChildren.push_back(new Node((*move).finalState, this, this->tree, ((1. - MCTS_EPSILON) * moveProbabilities[(*move).id] + MCTS_EPSILON * noises[i]), (*move).id));
+       i++;
+      }
+
+      for(std::vector<Node*>::iterator child = newChildren.begin(); child != newChildren.end(); ++child) {
+       (*child)->updateU();
+      }
+    
+      //And add it to the node
+      this->addChildren(newChildren);
+
+      free(noises);
     }
-  
-    //And add it to the node
-    this->addChildren(newChildren);
+    else {
+      for(std::vector<Move>::iterator move = legalMoves.begin(); move != legalMoves.end(); ++move) {
+       newChildren.push_back(new Node((*move).finalState, this, this->tree, moveProbabilities[(*move).id], (*move).id));
+      }
+
+      for(std::vector<Node*>::iterator child = newChildren.begin(); child != newChildren.end(); ++child) {
+       (*child)->updateU();
+      }
+    
+      //And add it to the node
+      this->addChildren(newChildren);
+    }
   }
   else
   {
@@ -404,6 +482,17 @@ void Node::updateU(void)
   }
 }
 
+void Node::updateChildrenU(void)
+{
+  //In general, the children won't be sorted anymore once the U is updated
+  this->setChildrenSorted(false);
+    
+  //Compute U for every child
+  for(std::vector<Node*>::iterator child = this->children.begin(); child != this->children.end(); ++child) {
+    (*child)->updateU();
+  }
+}
+
 
 //TREE
 //CONSTRUCTORS
@@ -416,6 +505,29 @@ Tree::Tree(GameState *state, NeuralNetwork *net) : root(new Node(state, this)), 
 //SET/GET METHODS
 void Tree::setRoot(Node *root) {
   this->root = root;
+
+  std::vector<Node*> rootChildren = this->root->getChildren();
+
+  double *noises;
+
+  if((noises = (double*)malloc(rootChildren.size() * sizeof(double))) == NULL) {
+    std::cout << "Error allocating the memory for the dirichlet noises, program will be arrested.\n";
+    exit(EXIT_FAILURE);
+  }
+
+  dirichlet(MCTS_ALPHA, rootChildren.size(), noises);
+
+  int i = 0;
+  for(std::vector<Node*>::iterator child = rootChildren.begin(); child != rootChildren.end(); ++child) {
+    double oldP = (*child)->getP();
+
+    (*child)->setP((1 - MCTS_EPSILON) * oldP + MCTS_EPSILON * noises[i]);
+    (*child)->updateU();
+
+    i++;
+  }
+
+  free(noises);
 }
 
 Node* Tree::getRoot(void) {

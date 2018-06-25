@@ -24,11 +24,13 @@
 #include "Tree.hpp"
 #include "brian.hpp"
 
+#define MCTS_EPSILON 0.25
+#define MCTS_ALPHA 0.5
 
 #define MCTS_CP 0.707
-#define MCTS_tau 1.
+static double MCTS_tau = 1.;
 
-#define MCTS_NUMBER_OF_SWEEPS 1000
+#define MCTS_NUMBER_OF_SWEEPS 100
 
 
 //Class which performs the Monte Carlo tree search
