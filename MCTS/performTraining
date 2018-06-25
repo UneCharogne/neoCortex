@@ -1,0 +1,25 @@
+i=0
+while true
+do
+	echo ""
+	echo ""
+	echo "Performing training n. $i"
+	echo ""
+
+	./SelfPlay
+
+	cp Training/net_new.txt Training/net.txt
+	cp TrainingSet/* Training/
+
+	cd Training/
+
+	python2.6 train.py
+
+	cd ..
+
+	cp Training/network_new.txt network.txt
+
+	i=$((i+1))
+done
+
+
