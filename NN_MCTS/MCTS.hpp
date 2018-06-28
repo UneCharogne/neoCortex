@@ -24,13 +24,14 @@
 #include "Tree.hpp"
 #include "brian.hpp"
 
+
+#define MCTS_CP 1.
+#define MCTS_tau 1.
+
+#define MCTS_NUMBER_OF_SWEEPS 1000
+
 #define MCTS_EPSILON 0.25
-#define MCTS_ALPHA 0.5
-
-#define MCTS_CP 0.707
-static double MCTS_tau = 1.;
-
-#define MCTS_NUMBER_OF_SWEEPS 100
+#define MCTS_ALPHA 1.
 
 
 //Class which performs the Monte Carlo tree search
@@ -64,6 +65,8 @@ class MCTS {
     //Gameplay
     void playMove(GameState*);
     GameState* playBestMove(void);
+    GameState* playRandomMove(void);
+    GameState* playHighestFrequencyMove(void);;
 
 
     //Network training

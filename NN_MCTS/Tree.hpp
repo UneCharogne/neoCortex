@@ -23,13 +23,6 @@
 
 
 
-//Dirichlet noise functions
-double gamma1(double);
-void dirichlet(double, int, double*);
-
-
-
-
 //Forward declarations
 class Tree;
 
@@ -107,9 +100,9 @@ class Node {
   
     int getNumberOfVisits(void);
     int getNumberOfChildrenVisits(void);
-
-    void setP(double);
+  
     double getP(void);
+    void setP(double);
   
     double getTotalAction(void);
     double getMeanAction(void);

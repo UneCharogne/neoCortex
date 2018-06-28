@@ -19,9 +19,17 @@
 #define MAX_N_MOVES 120
 #define N_GAMES 500
 #define SHOW_GAMES 0
+#define RANDOM_PLAYER -1
 
 
-int main() {
+int main(int argc, char* argv[]) {
+    if(argc == 1) {
+        printf("Error, give the name of the network to use as a parameter!\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    std::string networkName(argv[1]);
+    
 	srand(time(0));
 	unsigned int results[3] = {0};
 
@@ -54,7 +62,12 @@ int main() {
 				neoCortex->sweep();
 			}
 			
-			currentState = neoCortex->playBestMove();
+			if(currentState->getPlayer() == RANDOM_PLAYER) {
+				currentState = neoCortex->playRandomMove();
+			}
+			else {
+				currentState = neoCortex->playHighestFrequencyMove();
+			}
 	        
 	        if(SHOW_GAMES == 1) {
 	        	std::cout << "Move n. " << Nmoves << "\n";

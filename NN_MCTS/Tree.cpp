@@ -261,8 +261,15 @@ double Node::getU(void) {
 }
 
 
+//TOOPTIMIZE
 double Node::getPlayProbability(void) {
-  return (pow(this->n, (1. / MCTS_tau)) / (pow(this->parent->getNumberOfChildrenVisits(), (1. / MCTS_tau))));
+  double Normalization = 0;
+    
+  std::vector<Node*> brothers = this->parent->getChildren();
+  for(std::vector<Node*>::iterator bro = brothers.begin(); bro != brothers.end(); ++bro) {
+    Normalization += pow((*bro)->getNumberOfVisits(), (1. / MCTS_tau));
+  }
+  return (pow(this->n, (1. / MCTS_tau)) / Normalization);
 }
 
 
@@ -289,11 +296,11 @@ void Node::printNetworkDataset(void) {
   FILE *fpstate, *fppies;
 
   if((fpstate = fopen("TrainingSet/states.dat", "a")) == NULL) {
-    printf("Error opening the file \"TrainingSets/states.dat\", program will be arrested.\n");
+    printf("Error opening the file \"TrainingSet/states.dat\", program will be arrested.\n");
     exit(EXIT_FAILURE);
   }
   if((fppies = fopen("TrainingSet/probabilities.dat", "a")) == NULL) {
-    printf("Error opening the file \"TrainingSets/probabilities.dat\", program will be arrested.\n");
+    printf("Error opening the file \"TrainingSet/probabilities.dat\", program will be arrested.\n");
     exit(EXIT_FAILURE);
   }
 
@@ -403,9 +410,14 @@ void Node::buildChildren(void) {
 
       dirichlet(MCTS_ALPHA, legalMoves.size(), noises);
 
+      double Normalization2 = 0;
+      for(std::vector<Move>::iterator move = legalMoves.begin(); move != legalMoves.end(); ++move) {
+        Normalization2 += moveProbabilities[(*move).id];
+      }
+
       int i = 0;
       for(std::vector<Move>::iterator move = legalMoves.begin(); move != legalMoves.end(); ++move) {
-       newChildren.push_back(new Node((*move).finalState, this, this->tree, ((1. - MCTS_EPSILON) * moveProbabilities[(*move).id] + MCTS_EPSILON * noises[i]), (*move).id));
+       newChildren.push_back(new Node((*move).finalState, this, this->tree, ((1. - MCTS_EPSILON) * (moveProbabilities[(*move).id] / Normalization2) + MCTS_EPSILON * noises[i]), (*move).id));
        i++;
       }
 
@@ -419,8 +431,13 @@ void Node::buildChildren(void) {
       free(noises);
     }
     else {
+      double Normalization2 = 0;
       for(std::vector<Move>::iterator move = legalMoves.begin(); move != legalMoves.end(); ++move) {
-       newChildren.push_back(new Node((*move).finalState, this, this->tree, moveProbabilities[(*move).id], (*move).id));
+        Normalization2 += moveProbabilities[(*move).id];
+      }
+
+      for(std::vector<Move>::iterator move = legalMoves.begin(); move != legalMoves.end(); ++move) {
+       newChildren.push_back(new Node((*move).finalState, this, this->tree, (moveProbabilities[(*move).id] / Normalization2), (*move).id));
       }
 
       for(std::vector<Node*>::iterator child = newChildren.begin(); child != newChildren.end(); ++child) {

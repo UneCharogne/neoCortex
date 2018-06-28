@@ -128,6 +128,44 @@ GameState* MCTS::playBestMove(void) {
 }
 
 
+//Play the best move given the current exploration of the tree
+//TO DO CHANGE FROM GET BEST CHILD TO GET CHILD TO PLAY
+GameState* MCTS::playRandomMove(void) {
+  //Print the input and target output for the network
+  this->tree.getRoot()->printNetworkDataset();
+
+  //Pick the best child node of the current root, and select it as the new root
+  Node* moveToPlay = this->tree.getRoot()->getRandomChild();
+  //Prune the other branches
+  this->tree.getRoot()->pruneOtherBranches(moveToPlay);
+  //Play the move
+  this->tree.setRoot(moveToPlay);
+  return this->tree.getRoot()->getState();
+}
+
+
+//Play the best move given the current exploration of the tree
+//TO DO CHANGE FROM GET BEST CHILD TO GET CHILD TO PLAY
+GameState* MCTS::playHighestFrequencyMove(void) {
+    //Print the input and target output for the network
+    this->tree.getRoot()->printNetworkDataset();
+    std::vector<Node*> children = this->tree.getRoot()->getChildren();
+    
+    Node* moveToPlay = children[0];
+    for(int i=1; i<children.size(); i++) {
+        if(children[i]->getNumberOfVisits() > moveToPlay->getNumberOfVisits()) {
+            moveToPlay = children[i];
+        }
+    }
+    
+    //Prune the other branches
+    this->tree.getRoot()->pruneOtherBranches(moveToPlay);
+    //Play the move
+    this->tree.setRoot(moveToPlay);
+    return this->tree.getRoot()->getState();
+}
+
+
 void MCTS::printBoardEvaluations(void) {
   FILE *fpz;
 
