@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cfloat>
 #include <iostream>
+#include <fstream>
 #include "Game.hpp"
 #include "Tree.hpp"
 #include "MCTS.hpp"
@@ -55,11 +56,16 @@ void MCTS::expansion(Node* currentNode) {
 void MCTS::backPropagation(Node* currentNode) {
   std::vector<double> netOutput;
   double v;
-
-  this->net->setInput(currentNode->getState()->getNetworkInput());
-  this->net->propagateSignal();
-  netOutput = this->net->getOutput();
-  v = tanh(netOutput[netOutput.size() - 1]);
+    
+  if(currentNode->getState()->isFinalState() == false) {
+    this->net->setInput(currentNode->getState()->getNetworkInput());
+    this->net->propagateSignal();
+    netOutput = this->net->getOutput();
+    v = tanh(netOutput[netOutput.size() - 1]);
+  }
+  else {
+    v = currentNode->getPlayer() * currentNode->getState()->getWinner();
+  }
 
   //Tne , we have to update the number of visits and the action of the current state
   currentNode->increaseNumberOfVisits();
@@ -167,12 +173,9 @@ GameState* MCTS::playHighestFrequencyMove(void) {
 
 
 void MCTS::printBoardEvaluations(void) {
-  FILE *fpz;
-
-  if((fpz = fopen("TrainingSet/z.dat", "a")) == NULL) {
-    printf("Error opening the file \"TrainingSet/z.dat\", program will be arrested.\n");
-    exit(EXIT_FAILURE);
-  }
+  std::ofstream zfile;
+    
+  zfile.open("TrainingSet/z.dat", std::ios::out | std::ios::app);
 
   Node* currentState = this->tree.getRoot();
   int w = currentState->getState()->getWinner();
@@ -185,14 +188,15 @@ void MCTS::printBoardEvaluations(void) {
   }
 
   for(int i=(z.size() - 1);i>0;i--) {
-    fprintf(fpz, "%lf\n", (double)z[i]);
+    zfile << (double)z[i] << "\n";
   }
-  fclose(fpz);
+  
+  zfile.close();
 }
 
 
 MCTS::~MCTS(void) {
   this->getTree().deleteTree();
 
-  delete this->net;
+  //delete this->net;
 }
