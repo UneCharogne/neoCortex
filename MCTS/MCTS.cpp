@@ -7,14 +7,11 @@
 #include "Game.hpp"
 #include "Tree.hpp"
 #include "MCTS.hpp"
-#include "brian.hpp"
 
 
-MCTS::MCTS(Tree tree, NeuralNetwork *net) : tree(tree), net(net) { 
-  this->tree.setNetwork(net);
-}
+MCTS::MCTS(Tree tree) : tree(tree) { }
 
-MCTS::MCTS(GameState *state, NeuralNetwork *net) : tree(Tree(state, net)), net(net) { }
+MCTS::MCTS(GameState *state) : tree(Tree(state)) { }
 
 
 Tree MCTS::getTree(void) {
@@ -26,10 +23,10 @@ Tree MCTS::getTree(void) {
 Node* MCTS::selection(Node* currentNode) {
   //std::cout << "Selection.\n";
   Node* nextNode;
-  
+
   //Until a leaf is not reached
   while(currentNode->isLeaf() == false) {
-    //Pick the most promising child of the current node as the next node
+    //Pick the most promising node of the current node as the next node
     nextNode = currentNode->getBestChild();
     
     currentNode = nextNode;
@@ -40,64 +37,74 @@ Node* MCTS::selection(Node* currentNode) {
 
 
 //In the expansion, the tree is eventually expanded 
-void MCTS::expansion(Node* currentNode) {
+Node* MCTS::expansion(Node* currentNode) {
   //std::cout << "Expansion.\n";
   //The current node is a leaf state.
-  //If it is a final state, nothing is done
-  if(currentNode->getState()->isFinalState() == false) {
-    //Otherwise, the tree is expanded by adding a list of children
-    currentNode->buildChildren();
+  //If it has never been visited before, nothing is done.
+  if(currentNode->getNumberOfVisits() != 0) {
+    //std::cout << "this state has been visited indeed.\n";
+    //Otherwise, if it is a final state, also nothing is done
+    if(currentNode->getState()->isFinalState() == false) {
+      //Otherwise, the tree is expanded by adding a list of children
+      //std::cout << "Children built!\n";
+      currentNode->buildChildren();
+      
+      //And return a random child
+      return currentNode->getRandomChild();
+    }
   }
+  
+  return currentNode;
+}
+
+
+//A simulation is performed from the current node, and the reward is returned
+double MCTS::simulation(Node* currentNode) {
+  //std::cout << "Simulation.\n";
+  //A simulation is performed from the current game state, and the reward is returned
+  int reward = currentNode->getState()->simulateGame();
+
+  return reward;
 }
 
 
 //The result of the simulation from the leaf is backpropagated across the tree
-void MCTS::backPropagation(Node* currentNode) {
-  std::vector<double> netOutput;
-  double v;
-
-  this->net->setInput(currentNode->getState()->getNetworkInput());
-  this->net->propagateSignal();
-  netOutput = this->net->getOutput();
-  v = tanh(netOutput[netOutput.size() - 1]);
-
-  //Tne , we have to update the number of visits and the action of the current state
+void MCTS::backPropagation(Node* currentNode, double reward) {
+  //We are in a leaf, from which we simulated a game that gave a certain reward
+  //First of all, we have to update the number of visits and the total reward of the current state
   currentNode->increaseNumberOfVisits();
-  currentNode->updateAction(v);
-
+  currentNode->increaseReward(currentNode->getPlayer() * reward);
   
   //Then, we can backpropagate the reward until the root of the tree is found, updating the UCT along our path
   Node* parentNode = currentNode->getParent();
-  while (currentNode != this->tree.getRoot()) {
-    v = -v;
-
+  while (parentNode!= NULL) {
     //Update the number of visits and the reward of the parent
     parentNode->increaseNumberOfVisits();
-    parentNode->increaseNumberOfChildrenVisits();
-    parentNode->updateAction(v);
-    //parentNode->updateAction(parentNode->getPlayer() * v);
+    parentNode->increaseReward(parentNode->getPlayer() * reward);
     
     //And therefore the UCT of the current node
-    parentNode->updateChildrenU();
+    currentNode->updateUCT();
     
     //And then move to its parent
     currentNode = parentNode;
     parentNode = currentNode->getParent();
-    //Until a root is found, for which updating the U is pointless
+    //Until a root (with a null parent) is found, for which updating the UCT is pointless
   }
 }
 
 
 void MCTS::sweep(void) {
   Node* currentNode;
+  double reward;
   
   //Starting from the root of the tree
   currentNode = this->tree.getRoot();
   
   //Perform the series of operation of the MCTS sweep
   currentNode = this->selection(currentNode);
-  this->expansion(currentNode);
-  this->backPropagation(currentNode);
+  currentNode = this->expansion(currentNode);
+  reward = this->simulation(currentNode);
+  this->backPropagation(currentNode, reward);
 }
 
 
@@ -113,48 +120,12 @@ void MCTS::playMove(GameState *state) {
 
 
 //Play the best move given the current exploration of the tree
-//TO DO CHANGE FROM GET BEST CHILD TO GET CHILD TO PLAY
 GameState* MCTS::playBestMove(void) {
-  //Print the input and target output for the network
-  this->tree.getRoot()->printNetworkDataset();
-
   //Pick the best child node of the current root, and select it as the new root
-  Node* moveToPlay = this->tree.getRoot()->getChildToPlay();
+  Node* moveToPlay = this->tree.getRoot()->getBestChild();
   //Prune the other branches
   this->tree.getRoot()->pruneOtherBranches(moveToPlay);
   //Play the move
   this->tree.setRoot(moveToPlay);
   return this->tree.getRoot()->getState();
-}
-
-
-void MCTS::printBoardEvaluations(void) {
-  FILE *fpz;
-
-  if((fpz = fopen("TrainingSet/z.dat", "a")) == NULL) {
-    printf("Error opening the file \"TrainingSet/z.dat\", program will be arrested.\n");
-    exit(EXIT_FAILURE);
-  }
-
-  Node* currentState = this->tree.getRoot();
-  int w = currentState->getState()->getWinner();
-
-  std::vector<int> z;
-  z.push_back(currentState->getPlayer() * w);
-  while(currentState->getParent() != NULL) {
-    currentState = currentState->getParent();
-    z.push_back(currentState->getPlayer() * w);
-  }
-
-  for(int i=(z.size() - 1);i>0;i--) {
-    fprintf(fpz, "%lf\n", (double)z[i]);
-  }
-  fclose(fpz);
-}
-
-
-MCTS::~MCTS(void) {
-  this->getTree().deleteTree();
-
-  delete this->net;
 }

@@ -17,8 +17,8 @@ int main() {
 	GameState *currentState;
 	
 	//Get the starting state
-	currentState = new ChessState();
-    currentState->printState();
+	currentState = new TicTacToeState();
+        currentState->printState();
 	
 	//Initialize two MCTS players
 	MCTS neoCortex(currentState);
