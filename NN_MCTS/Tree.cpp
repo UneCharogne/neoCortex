@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <cfloat>
 #include <iostream>
+#include <fstream>
 #include "Game.hpp"
 #include "MCTS.hpp"
 #include "Tree.hpp"
@@ -293,26 +294,19 @@ bool Node::isLeaf(void) {
 
 void Node::printNetworkDataset(void) {
   //First of all, let's open the files to print the outputs
-  FILE *fpstate, *fppies;
-
-  if((fpstate = fopen("TrainingSet/states.dat", "a")) == NULL) {
-    printf("Error opening the file \"TrainingSet/states.dat\", program will be arrested.\n");
-    exit(EXIT_FAILURE);
-  }
-  if((fppies = fopen("TrainingSet/probabilities.dat", "a")) == NULL) {
-    printf("Error opening the file \"TrainingSet/probabilities.dat\", program will be arrested.\n");
-    exit(EXIT_FAILURE);
-  }
+  std::ofstream statefile, piesfile;
+  
+  statefile.open("TrainingSet/states.dat", std::ios::out | std::ios::app);
+  piesfile.open("TrainingSet/probabilities.dat", std::ios::out | std::ios::app);
 
 
   //Get the input for the network from the current state
   std::vector<double> networkInput = this->state->getNetworkInput();
   //And print it
   for(int i=0;i<networkInput.size();i++) {
-    fprintf(fpstate, "%lf ", networkInput[i]);
+    statefile << networkInput[i] << " ";
   }
-  fprintf(fpstate, "\n");
-  fclose(fpstate);
+  statefile << "\n";
 
 
   //Then, create a vector with the size of the network's output
@@ -331,10 +325,12 @@ void Node::printNetworkDataset(void) {
 
   //Then, print the probabilities
   for(int i=0;i<Nprobabilities;i++) {
-    fprintf(fppies, "%lf ", probabilities[i]);
+    piesfile << probabilities[i] << " ";
   }
-  fprintf(fppies, "\n");
-  fclose(fppies);
+  piesfile << "\n";
+    
+  statefile.close();
+  piesfile.close();
 }
 
 
