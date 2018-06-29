@@ -66,6 +66,8 @@ void MCTS::backPropagation(Node* currentNode) {
   else {
     v = currentNode->getPlayer() * currentNode->getState()->getWinner();
   }
+  
+  v = -v;
 
   //Tne , we have to update the number of visits and the action of the current state
   currentNode->increaseNumberOfVisits();
