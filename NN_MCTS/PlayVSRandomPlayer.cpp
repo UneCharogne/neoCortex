@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
 	    }
 
 		//Initialize a MCTS players
-		MCTS* neoCortex = new MCTS(currentState, new NeuralNetwork("network.txt"));
+		MCTS* neoCortex = new MCTS(currentState, new NeuralNetwork(networkName));
 		
 		int Nmoves = 0;
 		while((currentState->isFinalState() == 0) && (Nmoves < MAX_N_MOVES)) {
