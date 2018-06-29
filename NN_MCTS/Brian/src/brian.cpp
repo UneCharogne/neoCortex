@@ -137,7 +137,7 @@ NeuralNetwork::NeuralNetwork(std::string fileName) {
   fscanf(fp, "\n");
   for(int l=0;l<Nl;l++) {
     fscanf(fp, "%c ", &type);
-    if (type == 'I') {
+    if ((type == 'I') || (type == 'M')) {
       layerType.push_back("Identity");
     } else if (type == 'T') {
       layerType.push_back("Tanh");
