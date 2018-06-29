@@ -63,6 +63,7 @@ class MCTS {
     //Gameplay
     void playMove(GameState*);
     GameState* playBestMove(void);
+    GameState* playRandomMove(void);
 };
 
 #endif

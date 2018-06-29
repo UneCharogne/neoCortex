@@ -271,7 +271,7 @@ void Node::updateUCT(void)
     if(this->n != 0)
     {
       //Compute UCT
-      this->UCT = (((-1 * this->reward) / this->n) + MCTS_CP * sqrt(2.f * (log(this->parent->getNumberOfVisits()) / this->n)));
+      this->UCT = ((this->reward / this->n) + MCTS_CP * sqrt(2.f * (log(this->parent->getNumberOfVisits()) / this->n)));
     }
     else
     {
