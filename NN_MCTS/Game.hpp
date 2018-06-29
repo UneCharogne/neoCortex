@@ -21,6 +21,10 @@
 #include <string>
 #include <array>
 
+#ifdef __linux__ 
+#include <typeinfo>
+#endif
+
 
 typedef std::array<int,64> DraughtsBoard;
 const DraughtsBoard DRAUGHTS_STARTING_BOARD = {0,1,0,1,0,1,0,1,1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,-1,0,-1,0,-1,0,0,-1,0,-1,0,-1,0,-1,-1,0,-1,0,-1,0,-1,0};
