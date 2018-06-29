@@ -125,10 +125,10 @@ for i in range(60,120):
 """
 Print error during training on file
 """
-file_out = open("train_error.dat",'w')
+"""file_out = open("train_error.dat",'w')
 for i in range(len(train_error)):
     file_out.write(str(i+1)+" "+str(train_error[i])+"\n")
-file_out.close()
+file_out.close()"""
 
 """
 Save new network
