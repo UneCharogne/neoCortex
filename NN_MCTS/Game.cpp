@@ -2850,6 +2850,9 @@ std::vector<double> ChessState::getNetworkInput(void) {
       if(PIECES_COLORS[this->board[square]] != (-1 * sign * this->player)) {
         netInput.push_back(this->board[square]);
       }
+      else{
+          netInput.push_back(0);
+      }
     }
 
     if(sign *  this->player == 1) {
