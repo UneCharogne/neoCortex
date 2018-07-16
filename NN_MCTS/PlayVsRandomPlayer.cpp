@@ -62,7 +62,12 @@ int main() {
 				neoCortex->sweep();
 			}
 			
-			currentState = neoCortex->playBestMove();
+			if((Nmoves % 2 == 0)) {
+				currentState = neoCortex->playBestMove();
+			}
+			else {
+				currentState = neoCortex->playRandomMove();
+			}
 	        
 	        if(SHOW_GAMES == 1) {
 	        	std::cout << "Move n. " << Nmoves << "\n";

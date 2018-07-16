@@ -20,10 +20,7 @@
 #include <vector>
 #include <string>
 #include <array>
-
-#ifdef __linux__ 
-#include <typeinfo>
-#endif
+#include <unordered_map>
 
 
 typedef std::array<int,64> DraughtsBoard;
@@ -267,10 +264,7 @@ class ChessState : public GameState {
         std::vector<Move> computeLegalMoves(void);
     
         //Print an input for the network
-        std::vector<double> getNetworkInput(void) {
-            std::vector<double> toDo;
-            return toDo;
-        }
+        std::vector<double> getNetworkInput(void);
         
         //Winning condition for tic tac toe
         int getWinner(void);
@@ -284,7 +278,13 @@ class ChessState : public GameState {
         //GAME FUNCTIONS
         //Function that returns true if a given cell is under attack from the a certain player, false otherwise
         static bool isUnderAttack(ChessBoard, int, int);
+
+        //STATIC VARIABLES
+        static std::unordered_map<std::string, int> MovesDictionary;
 };
+
+
+void CreateChessMovesDictionary(void);
 
 
 
