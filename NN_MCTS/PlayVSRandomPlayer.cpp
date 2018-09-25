@@ -23,7 +23,7 @@
 
 
 int main(int argc, char* argv[]) {
-    if(argc == 1) {
+	if(argc == 1) {
         printf("Error, give the name of the network to use as a parameter!\n");
         exit(EXIT_FAILURE);
     }
@@ -37,6 +37,8 @@ int main(int argc, char* argv[]) {
 
 	system("rm -rf TrainingSet");
 	system("mkdir TrainingSet");
+    
+    NeuralNetwork* net = new NeuralNetwork(networkName);
 
 
 	//Perform N_GAMES self games
@@ -52,7 +54,7 @@ int main(int argc, char* argv[]) {
 	    }
 
 		//Initialize a MCTS players
-		MCTS* neoCortex = new MCTS(currentState, new NeuralNetwork(networkName));
+		MCTS* neoCortex = new MCTS(currentState, net);
 		
 		int Nmoves = 0;
 		while((currentState->isFinalState() == 0) && (Nmoves < MAX_N_MOVES)) {
@@ -99,5 +101,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	std::cout << "\n\nResults:\nWhite won " << (100 * results[0] / N_GAMES) << "%% of the games;\nBlack won " << (100 * results[2] / N_GAMES) << "%% of the games;\nDraws " << (100 * results[1] / N_GAMES) << "%% of the games;\n\n\n";
+    
+    delete net;
 }
 			

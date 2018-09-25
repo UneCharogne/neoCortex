@@ -17,16 +17,13 @@
 
 
 #define MAX_N_MOVES 120
-#define N_GAMES 500
-#define SHOW_GAMES 0
-
-#define N_MOVES_TO_CHANGE_TAU 4
-#define TAU_CHANGE_FACTOR 0.1
+#define N_GAMES 100
+#define SHOW_GAMES 1
 
 
-int main() {
+int main(int argc, char* argv[]) {
 	srand(time(0));
-	srand48(time(0));
+	
 	unsigned int results[3] = {0};
 
 	GameState* currentState;
@@ -34,10 +31,11 @@ int main() {
 	system("rm -rf TrainingSet");
 	system("mkdir TrainingSet");
 
-
+    NeuralNetwork* net = new NeuralNetwork("network.txt");
+    
 	//Perform N_GAMES self games
 	for(int game=0;game<N_GAMES;game++) {
-		std::cout << "Playing game " << game << "\n";
+		std::cout << "Playing game " << game << " of " << N_GAMES << "\n";
 
 		//Initialize the game
 		currentState = new ChessState();
@@ -48,14 +46,10 @@ int main() {
 	    }
 
 		//Initialize a MCTS players
-		MCTS* neoCortex = new MCTS(currentState, new NeuralNetwork("network.txt"));
+		MCTS* neoCortex = new MCTS(currentState, net);
 		
 		int Nmoves = 0;
 		while((currentState->isFinalState() == 0) && (Nmoves < MAX_N_MOVES)) {
-			if((Nmoves % N_MOVES_TO_CHANGE_TAU) == 0) {
-				MCTS_tau *= TAU_CHANGE_FACTOR;
-			}
-
 			for(int i=0;i<MCTS_NUMBER_OF_SWEEPS;i++)
 			{
 				//std::cout << "Sweep number " << i << ".\n";
@@ -94,5 +88,7 @@ int main() {
 	}
 
 	std::cout << "\n\nResults:\nWhite won " << (100 * results[0] / N_GAMES) << "%% of the games;\nBlack won " << (100 * results[2] / N_GAMES) << "%% of the games;\nDraws " << (100 * results[1] / N_GAMES) << "%% of the games;\n\n\n";
+    
+    delete net;
 }
 			

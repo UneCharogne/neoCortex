@@ -2,7 +2,6 @@
 
 //TODO: Adjust brian to make the soft matt and the other part automatically and make it a bit more elegant
 //TODO: Functions to print the training datasets for the network
-
 #include "Game.hpp"
 #include "Tree.hpp"
 #include "MCTS.hpp"
@@ -15,19 +14,30 @@
 #include <fstream>
 
 
-int main() {
+int main(int argc, char* argv[]) {
+    if(argc < 3) {
+        printf("Error, give the name of the networks to use as a parameter!\n");
+        exit(EXIT_FAILURE);
+    }
+	
+    std::string whiteNetworkName(argv[1]);
+    std::string blackNetworkName(argv[2]);
+    
 	srand(time(0));
 	
 	GameState *currentState;
+
+	system("rm -rf TrainingSet");
+	system("mkdir TrainingSet");
 	
 	//Get the starting state
-	currentState = new TicTacToeState();
+	currentState = new ChessState();
     currentState->printState();
 
 	//Initialize two MCTS players
 	MCTS* Players[2];
-	Players[0] = new MCTS(new TicTacToeState(), new NeuralNetwork("network1.txt"));
-	Players[1] = new MCTS(new TicTacToeState(), new NeuralNetwork("network2.txt"));
+	Players[0] = new MCTS(new ChessState(), new NeuralNetwork(whiteNetworkName));
+	Players[1] = new MCTS(new ChessState(), new NeuralNetwork(blackNetworkName));
 	
 	int Nmoves = 0;
 	int player = 0;
