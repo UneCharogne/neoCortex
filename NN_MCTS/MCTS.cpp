@@ -111,6 +111,9 @@ void MCTS::sweep(void) {
 
 //Force to play a move (typically, a move played by the opponent in his turn)
 void MCTS::playMove(GameState *state) {
+  //Print the input and target output for the network
+  this->tree.getRoot()->printNetworkDataset();
+
   //Look for the move to play in all the children of the current state
   Node* moveToPlay = this->tree.getRoot()->getChildByState(state);
   //Prune the other branches
