@@ -16,9 +16,9 @@
 #include <fstream>
 
 
-#define MAX_N_MOVES 120
-#define N_GAMES 100
-#define SHOW_GAMES 1
+#define MAX_N_MOVES 240
+#define N_GAMES 10
+#define SHOW_GAMES 0
 
 
 int main(int argc, char* argv[]) {
@@ -55,11 +55,10 @@ int main(int argc, char* argv[]) {
     load_net(nets2[BISHOP], bishop_network_name);
     load_net(nets2[QUEEN], queen_network_name);
     load_net(nets2[KING], king_network_name);
-    std::cout << "prova3.\n";
     
 	//Perform N_GAMES self games
 	for(int game=0;game<N_GAMES;game++) {
-		std::cout << "Playing game " << game << " of " << N_GAMES << "\n";
+		std::cout << "Playing game " << (game+1) << " of " << N_GAMES << "\n";
 
 		//Initialize the game
 		currentState = new ChessState();

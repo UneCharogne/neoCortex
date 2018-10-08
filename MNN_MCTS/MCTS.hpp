@@ -31,7 +31,7 @@
 #define MCTS_NUMBER_OF_SWEEPS 100
 
 #define MCTS_EPSILON 0.25
-#define MCTS_ALPHA 1.
+#define MCTS_ALPHA 0.3
 
 #define SECOND_NET_TRESHOLD 0.001
 
