@@ -23,9 +23,10 @@ ChessMove::ChessMove(ChessState *finalState, int piece, int startingSquare, int 
 
 
 
-ChessState::ChessState(ChessBoard board, std::array<int,2> kingPositions, std::array<std::array<int,2>,2> possibleCastling, int player) : kingPositions(kingPositions), possibleCastling(possibleCastling), board(board) {
+ChessState::ChessState(ChessBoard board, std::vector<ChessBoard> previousBoards, std::array<int,2> kingPositions, std::array<std::array<int,2>,2> possibleCastling, int Nmove, int CounterToDraw, int player) : kingPositions(kingPositions), previousBoards(previousBoards), possibleCastling(possibleCastling), Nmove(Nmove), CounterToDraw(CounterToDraw), board(board) {
     this->player = player;
     this->computedLegalMoves = false;
+    this->Repetition = 1;
 }
 ChessState::ChessState(ChessBoard board, int player) : board(board) {
     this->player = player;
@@ -35,52 +36,59 @@ ChessState::ChessState(ChessBoard board, int player) : board(board) {
     for(int square = 0;square<64;square++) {
       if(this->board[square] == white_king)
       {
-        kingPositions[0] = square;
+        this->kingPositions[0] = square;
       }
       if(this->board[square] == black_king)
       {
-        kingPositions[1] = square;
+        this->kingPositions[1] = square;
       }
     }
 
     //If nothing is stated we assume that castling is possible if the king and the rooks are in their starting place
-    if(kingPositions[0] == 4) {
+    if(this->kingPositions[0] == 4) {
       if(this->board[0] == white_rook) {
-        possibleCastling[0][0] = 1;
+        this->possibleCastling[0][0] = 1;
       }
       else {
-        possibleCastling[0][0] = 0;
+        this->possibleCastling[0][0] = 0;
       }
       if(this->board[7] == white_rook) {
-        possibleCastling[0][1] = 1;
+        this->possibleCastling[0][1] = 1;
       }
       else {
-        possibleCastling[0][1] = 0;
+        this->possibleCastling[0][1] = 0;
       }
     } 
     else {
-      possibleCastling[0][0] = 0;
-      possibleCastling[0][1] = 0;
+      this->possibleCastling[0][0] = 0;
+      this->possibleCastling[0][1] = 0;
     }
 
-    if(kingPositions[1] == 60) {
+    if(this->kingPositions[1] == 60) {
       if(this->board[56] == black_rook) {
-        possibleCastling[1][0] = 1;
+        this->possibleCastling[1][0] = 1;
       }
       else {
-        possibleCastling[1][0] = 0;
+        this->possibleCastling[1][0] = 0;
       }
       if(this->board[63] == black_rook) {
-        possibleCastling[1][1] = 1;
+        this->possibleCastling[1][1] = 1;
       }
       else {
-        possibleCastling[1][1] = 0;
+        this->possibleCastling[1][1] = 0;
       }
     } 
     else {
-      possibleCastling[1][0] = 0;
-      possibleCastling[1][1] = 0;
+      this->possibleCastling[1][0] = 0;
+      this->possibleCastling[1][1] = 0;
     }
+
+
+    //And that this is the starting move of the game
+    this->previousBoards = std::vector<ChessBoard>();
+    this->Nmove = 0;
+    this->CounterToDraw = 0;
+    this->Repetition = 1;
 }
 ChessState::ChessState(void) : ChessState(CHESS_STARTING_BOARD, 1) {}
 
@@ -129,6 +137,23 @@ int ChessState::getWinner(void) {
 
 //Checks if this is the final state
 bool ChessState::isFinalState(void) {
+	//If a three-fold repetition happend, or if the counter to draw reached 50, the game is over
+	if(this->previousBoards.size() == 8) {
+		if(this->board == this->previousBoards[3]) {
+	        if (this->board == this->previousBoards[7]) {
+				//A three-fold repetition happened
+				this->Repetition = 3;
+				return true;
+			}
+			else {
+				this->Repetition = 2;
+			}
+		}
+	}
+	if(this->CounterToDraw == MAX_COUNTER_TO_DRAW) {
+		return true;
+	}
+
     //If the player has no more legal moves available, the game is over
     std::vector<ChessMove> legalMoves = this->getLegalMoves();
     
@@ -198,126 +223,219 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
     int check;
     std::vector<ChessMove> possibleMoves;
 
+
+    ChessBoard oldBoard = this->board;
+
+    for(int square=0;square<64;square++) {
+      if(this->player == 1) {
+    	if(oldBoard[square] == white_pawn2) {
+    		oldBoard[square] = white_pawn;
+    	}
+      } else {
+    	if(oldBoard[square] == black_pawn2) {
+    		oldBoard[square] = black_pawn;
+    	}
+      }
+    }
+
     //Run over all the cells
     for(int square=0;square<64;square++) {
       if(this->player == 1) {
-        switch(this->board[square]) {
+        switch(oldBoard[square]) {
           case white_pawn:
             //A pawn can either move ahead of one step not eating
-            if((square < 56) && (this->board[square + 8] == empty)) {
-              ChessBoard newBoard = this->board;
+            if((square < 48) && (this->board[square + 8] == empty)) {
+              ChessBoard newBoard = oldBoard;
               std::array<int,2> newKingPositions = this->kingPositions;
               std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+              if(newPreviousBoards.size() == 8) {
+              	std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	newPreviousBoards[0] = this->board;
+              } else if(newPreviousBoards.size() < 8) {
+              	newPreviousBoards.insert(newPreviousBoards.begin(), board);
+              } 
+              int NewNmove = this->Nmove + 1;
+              int newCounterToDraw = 0;
               newBoard[square] = empty;
               newBoard[square + 8] = white_pawn;
 
               //And if the move does not lead to check it a possible move
               if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
               {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 0));
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 0));
+              }
+            } //Eventually getting promoted if it is moving to the last row
+            else if((square < 56) && (this->board[square + 8] == empty)) {
+              ChessBoard newBoard = oldBoard;
+              std::array<int,2> newKingPositions = this->kingPositions;
+              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+              if(newPreviousBoards.size() == 8) {
+              	std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	newPreviousBoards[0] = this->board;
+              } else if(newPreviousBoards.size() < 8) {
+              	newPreviousBoards.insert(newPreviousBoards.begin(), board);
+              }
+              int NewNmove = this->Nmove + 1;
+              int newCounterToDraw = 0;
+              newBoard[square] = empty;
+              newBoard[square + 8] = white_knight;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 9));
               }
 
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 6) {
-                newBoard[square + 8] = white_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 9));
-                }
-
-                newBoard[square + 8] = white_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 6));
-                }
+              newBoard[square + 8] = white_queen;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 6));
               }
             }
 
             //Or eat on the right and left
-            if((square < 56) && ((square % 8) < 7) && (PIECES_COLORS[this->board[square + 8 + 1]] == -1)) {
-              ChessBoard newBoard = this->board;
+            if((square < 48) && ((square % 8) < 7) && (PIECES_COLORS[this->board[square + 8 + 1]] == -1)) {
+              ChessBoard newBoard = oldBoard;
               std::array <int,2> newKingPositions = this->kingPositions;
               std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+              if(newPreviousBoards.size() == 8) {
+              	std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	newPreviousBoards[0] = this->board;
+              } else if(newPreviousBoards.size() < 8) {
+              	newPreviousBoards.insert(newPreviousBoards.begin(), board);
+              }
+              int NewNmove = this->Nmove + 1;
+              int newCounterToDraw = 0;
               newBoard[square] = empty;
               newBoard[square + 8 + 1] = white_pawn;
 
               //And if the move does not lead to check it a possible move
               if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
               {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 2));
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 2));
+              }
+            } //Eventually getting promoted if it is moving to the last row
+            else if((square < 56) && ((square % 8) < 7) && (PIECES_COLORS[this->board[square + 8 + 1]] == -1)) {
+              ChessBoard newBoard = oldBoard;
+              std::array <int,2> newKingPositions = this->kingPositions;
+              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+              if(newPreviousBoards.size() == 8) {
+              	std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	newPreviousBoards[0] = this->board;
+              } else if(newPreviousBoards.size() < 8) {
+              	newPreviousBoards.insert(newPreviousBoards.begin(), board);
+              }
+              int NewNmove = this->Nmove + 1;
+              int newCounterToDraw = 0;
+              newBoard[square] = empty;
+			  newBoard[square + 8 + 1] = white_knight;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 11));
               }
 
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 6) {
-                newBoard[square + 8 + 1] = white_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 11));
-                }
-
-                newBoard[square + 8 + 1] = white_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 8));
-                }
+              newBoard[square + 8 + 1] = white_queen;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 8));
               }
             }
-            if((square < 56) && ((square % 8) > 0) && (PIECES_COLORS[this->board[square + 8 - 1]] == -1)) {
-              ChessBoard newBoard = this->board;
+            if((square < 48) && ((square % 8) > 0) && (PIECES_COLORS[this->board[square + 8 - 1]] == -1)) {
+              ChessBoard newBoard = oldBoard;
               std::array<int,2> newKingPositions = this->kingPositions;
               std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+              if(newPreviousBoards.size() == 8) {
+              	std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	newPreviousBoards[0] = this->board;
+              } else if(newPreviousBoards.size() < 8) {
+              	newPreviousBoards.insert(newPreviousBoards.begin(), board);
+              }
+              int NewNmove = this->Nmove + 1;
+              int newCounterToDraw = 0;
               newBoard[square] = empty;
               newBoard[square + 8 - 1] = white_pawn;
 
               //And if the move does not lead to check it a possible move
               if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
               {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 1));
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 1));
+              }
+            } //Eventually getting promoted if it is moving to the last row
+            else if((square < 56) && ((square % 8) > 0) && (PIECES_COLORS[this->board[square + 8 - 1]] == -1)) {
+              ChessBoard newBoard = oldBoard;
+              std::array<int,2> newKingPositions = this->kingPositions;
+              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+              if(newPreviousBoards.size() == 8) {
+              	std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	newPreviousBoards[0] = this->board;
+              } else if(newPreviousBoards.size() < 8) {
+              	newPreviousBoards.insert(newPreviousBoards.begin(), board);
+              }
+              int NewNmove = this->Nmove + 1;
+              int newCounterToDraw = 0;
+              newBoard[square] = empty;
+              newBoard[square + 8 - 1] = white_knight;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 10));
               }
 
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 6) {
-                newBoard[square + 8 - 1] = white_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 10));
-                }
-
-                newBoard[square + 8 - 1] = white_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 7));
-                }
+              newBoard[square + 8 - 1] = white_queen;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 7));
               }
             }
 
             //If it is in his starting cell it can move ahead of two cells too
             if(((square / 8) == 1) && (this->board[square + 8] == empty) && (this->board[square + 16] == empty)) {
-              ChessBoard newBoard = this->board;
+              ChessBoard newBoard = oldBoard;
               std::array<int,2> newKingPositions = this->kingPositions;
               std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+              if(newPreviousBoards.size() == 8) {
+              	std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	newPreviousBoards[0] = this->board;
+              } else if(newPreviousBoards.size() < 8) {
+              	newPreviousBoards.insert(newPreviousBoards.begin(), board);
+              }
+              int NewNmove = this->Nmove + 1;
+              int newCounterToDraw = 0;
               newBoard[square] = empty;
               newBoard[square + 16] = white_pawn2;
 
               //And if the move does not lead to check it a possible move
               if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
               {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 3));
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 3));
               }
             }
 
             //If it is in the 5th row, a capture en passant is possible
             if((square >= 32) && (square < 39)) {
               if((this->board[(square + 1)] == black_pawn2) && (this->board[square + 9] == empty)) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+                  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+                  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+                	newPreviousBoards.insert(newPreviousBoards.begin(), board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = 0;
                 newBoard[square] = empty;
                 newBoard[square + 1] = empty;
                 newBoard[square + 9] = white_pawn;
@@ -325,7 +443,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 5));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 5));
                 }
               }
             }
@@ -333,9 +451,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             //If it is in the 5th row, a capture en passant is possible
             if((square > 32) && (square <= 39)) {
               if((this->board[(square - 1)] == black_pawn2) && (this->board[square + 7] == empty)) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+               	  newPreviousBoards.insert(newPreviousBoards.begin(), board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = 0;
                 newBoard[square] = empty;
                 newBoard[square - 1] = empty;
                 newBoard[square + 7] = white_pawn;
@@ -343,103 +470,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 4));
-                }
-              }
-            }
-            break;
-
-          case white_pawn2:
-            //A pawn can either move ahead of one step not eating
-            if((square < 56) && (this->board[square + 8] == empty)) {
-              ChessBoard newBoard = this->board;
-              std::array<int,2> newKingPositions = this->kingPositions;
-              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
-              newBoard[square] = empty;
-              newBoard[square + 8] = white_pawn;
-
-              //And if the move does not lead to check it a possible move
-              if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-              {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 0));
-              }
-
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 6) {
-                newBoard[square + 8] = white_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 9));
-                }
-
-                newBoard[square + 8] = white_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 6));
-                }
-              }
-            }
-
-            //Or eat on the right and left
-            if((square < 56) && ((square % 8) < 7) && (PIECES_COLORS[this->board[square + 8 + 1]] == -1)) {
-              ChessBoard newBoard = this->board;
-              std::array <int,2> newKingPositions = this->kingPositions;
-              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
-              newBoard[square] = empty;
-              newBoard[square + 8 + 1] = white_pawn;
-
-              //And if the move does not lead to check it a possible move
-              if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-              {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 2));
-              }
-
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 6) {
-                newBoard[square + 8 + 1] = white_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 11));
-                }
-
-                newBoard[square + 8 + 1] = white_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 8));
-                }
-              }
-            }
-            if((square < 56) && ((square % 8) > 0) && (PIECES_COLORS[this->board[square + 8 - 1]] == -1)) {
-              ChessBoard newBoard = this->board;
-              std::array<int,2> newKingPositions = this->kingPositions;
-              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
-              newBoard[square] = empty;
-              newBoard[square + 8 - 1] = white_pawn;
-
-              //And if the move does not lead to check it a possible move
-              if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-              {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 1));
-              }
-
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 6) {
-                newBoard[square + 8 - 1] = white_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 10));
-                }
-
-                newBoard[square + 8 - 1] = white_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, square, 7));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, square, 4));
                 }
               }
             }
@@ -452,32 +483,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (9 * n)) < 64) && (((square + (9 * n)) % 8) != 0) && (check == 0))
             {
               if(this->board[square + (9 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (9 * n)] = white_bishop;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, square, (20+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, square, (20+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (9 * n)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (9 * n)] = white_bishop;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, square, (20+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, square, (20+n)));
                   }
                 }
               }
@@ -488,32 +537,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (9 * n)) >= 0) && (((square - (9 * n)) % 8) != 7) && (check == 0))
             {
               if(this->board[square - (9 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (9 * n)] = white_bishop;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, square, (6+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, square, (6+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (9 * n)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - (9 * n)] = white_bishop;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, square, (6+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, square, (6+n)));
                   }
                 }
               }
@@ -526,32 +593,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (7 * n)) < 64) && (((square + (7 * n)) % 8) != 7) && (check == 0))
             {
               if(this->board[square + (7 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (7 * n)] = white_bishop;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, square, (n-1)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, square, (n-1)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (7 * n)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (7 * n)] = white_bishop;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, square, (n-1)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, square, (n-1)));
                   }
                 }
               }
@@ -562,32 +647,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (7 * n)) >= 0) && (((square - (7 * n)) % 8) != 0) && (check == 0))
             {
               if(this->board[square - (7 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (7 * n)] = white_bishop;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, square, (13+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, square, (13+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (7 * n)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - (7 * n)] = white_bishop;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, square, (13+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, square, (13+n)));
                   }
                 }
               }
@@ -603,9 +706,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (8 * i)) < 64) && (check == 0))
             { 
               if(this->board[square + (8 * i)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 if(square == 0) {
                   newPossibleCastling[0][0] = 0;
                 }
@@ -618,16 +730,25 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, square, (i-1)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, square, (i-1)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (8 * i)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   if(square == 0) {
                     newPossibleCastling[0][0] = 0;
                   }
@@ -640,7 +761,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, square, (i-1)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, square, (i-1)));
                   }
                 }
               }
@@ -652,9 +773,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (8 * i)) >= 0) && (check == 0))
             { 
               if(this->board[square - (8 * i)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 if(square == 0) {
                   newPossibleCastling[0][0] = 0;
                 }
@@ -667,16 +797,25 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, square, (13+i)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, square, (13+i)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (8 * i)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   if(square == 0) {
                     newPossibleCastling[0][0] = 0;
                   }
@@ -689,7 +828,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, square, (13+i)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, square, (13+i)));
                   }
                 }
               }
@@ -702,9 +841,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while((((square + j) % 8) != 0) && (check == 0))
             {
               if(this->board[square + j] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 if(square == 0) {
                   newPossibleCastling[0][0] = 0;
                 }
@@ -717,16 +865,25 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, square, (20+j)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, square, (20+j)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + j]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   if(square == 0) {
                     newPossibleCastling[0][0] = 0;
                   }
@@ -739,7 +896,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, square, (20+j)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, square, (20+j)));
                   }
                 }
               }
@@ -751,9 +908,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while((square - j >= 0) && (((square - j) % 8) != 7) && (check == 0))
             {
               if(this->board[square - j] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 if(square == 0) {
                   newPossibleCastling[0][0] = 0;
                 }
@@ -766,16 +932,25 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, square, (6+j)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, square, (6+j)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - j]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   if(square == 0) {
                     newPossibleCastling[0][0] = 0;
                   }
@@ -788,7 +963,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, square, (6+j)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, square, (6+j)));
                   }
                 }
               }
@@ -804,32 +979,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (8 * i)) < 64) && (check == 0))
             {
               if(this->board[square + (8 * i)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (8 * i)] = white_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (i-1)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (i-1)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (8 * i)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (8 * i)] = white_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (i-1)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (i-1)));
                   }
                 }
               }
@@ -840,32 +1033,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (8 * i)) >= 0) && (check == 0))
             {
               if(this->board[square - (8 * i)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (8 * i)] = white_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (27+i)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (27+i)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (8 * i)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  } 
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - (8 * i)] = white_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (27+i)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (27+i)));
                   }
                 }
               }
@@ -878,32 +1089,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while((((square + j) % 8) != 0) && (check == 0))
             {
               if(this->board[square + j] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + j] = white_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (41+j)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (41+j)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + j]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + j] = white_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (41+j)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (41+j)));
                   }
                 }
               }
@@ -914,32 +1143,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while((square - j >= 0) && (((square - j) % 8) != 7) && (check == 0))
             {
               if(this->board[square - j] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - j] = white_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (13+j)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (13+j)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - j]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = this->CounterToDraw + 1;
                   newBoard[square] = empty;
                   newBoard[square - j] = white_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (13+j)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (13+j)));
                   }
                 }
               }
@@ -952,32 +1199,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (9 * n)) < 64) && (((square + (9 * n)) % 8) != 0) && (check == 0))
             {
               if(this->board[square + (9 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (9 * n)] = white_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (48+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (48+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (9 * n)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (9 * n)] = white_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (48+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (48+n)));
                   }
                 }
               }
@@ -988,32 +1253,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (9 * n)) >= 0) && (((square - (9 * n)) % 8) != 7) && (check == 0))
             {
               if(this->board[square - (9 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (9 * n)] = white_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (20+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (20+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (9 * n)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - (9 * n)] = white_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (20+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (20+n)));
                   }
                 }
               }
@@ -1026,32 +1309,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (7 * n)) < 64) && (((square + (7 * n)) % 8) != 7) && (check == 0))
             {
               if(this->board[square + (7 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (7 * n)] = white_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (6+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (6+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (7 * n)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (7 * n)] = white_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (6+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (6+n)));
                   }
                 }
               }
@@ -1062,32 +1363,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (7 * n)) >= 0) && (((square - (7 * n)) % 8) != 0) && (check == 0))
             {
               if(this->board[square - (7 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                if(newPreviousBoards.size() == 8) {
+              	  std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	  newPreviousBoards[0] = this->board;
+                } else if(newPreviousBoards.size() < 8) {
+              	  newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                }
+                int NewNmove = this->Nmove + 1;
+                int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (7 * n)] = white_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (34+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (34+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (7 * n)]] == -1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - (7 * n)] = white_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, square, (34+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, square, (34+n)));
                   }
                 }
               }
@@ -1108,16 +1427,28 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if it is empty or contains an enemy piece
                 if(PIECES_COLORS[this->board[(8 * i) + j]] != 1) {
                   //It is possible to move there
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+                  if(newPreviousBoards.size() == 8) {
+              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+              	    newPreviousBoards[0] = this->board;
+                  } else if(newPreviousBoards.size() < 8) {
+              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+                  }
+                  int NewNmove = this->Nmove + 1;
+                  int newCounterToDraw = this->CounterToDraw + 1;
+                  if(PIECES_COLORS[this->board[(8 * i) + j]] == -1) {
+                  	newCounterToDraw = 0;
+                  }
                   newBoard[square] = empty;
                   newBoard[(8 * i) + j] = white_knight;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), KNIGHT, square, n));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), KNIGHT, square, n));
                   }
                 }
               }
@@ -1137,9 +1468,21 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                     //And if it is empty or contains an enemy piece
                     if(PIECES_COLORS[this->board[square + (8 * i) + j]] != 1) {
                       //The move is possible
-                      ChessBoard newBoard = this->board;
+                      ChessBoard newBoard = oldBoard;
                       std::array<int,2> newKingPositions = this->kingPositions;
                       std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	                  std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	                  if(newPreviousBoards.size() == 8) {
+	              	    std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              	    newPreviousBoards[0] = this->board;
+	                  } else if(newPreviousBoards.size() < 8) {
+	              	    newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	                  }
+	                  int NewNmove = this->Nmove + 1;
+	                  int newCounterToDraw = this->CounterToDraw + 1;
+	                  if(PIECES_COLORS[this->board[square + (8 * i) + j]] == -1) {
+	                  	newCounterToDraw = 0;
+	                  }
                       newPossibleCastling[0][0] = 0;
                       newPossibleCastling[0][1] = 0;
                       newKingPositions[0] = square + (8 * i) + j;
@@ -1149,7 +1492,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                       //And if the move does not lead to check it a possible move
                       if(ChessState::isUnderAttack(newBoard, newKingPositions[0], -1 * this->player) == false)
                       {
-                        possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), KING, square, ((3 * i) + j + 4)));
+                        possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), KING, square, ((3 * i) + j + 4)));
                       }
                     }
                   }
@@ -1164,123 +1507,201 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
       }
       else
       {
-        switch(this->board[square]) {
+        switch(oldBoard[square]) {
           case black_pawn:
             //A pawn can either move ahead of one step not eating
-            if((square >= 8) && (this->board[square - 8] == empty)) {
-              ChessBoard newBoard = this->board;
+            if((square >= 16) && (this->board[square - 8] == empty)) {
+              ChessBoard newBoard = oldBoard;
               std::array<int,2> newKingPositions = this->kingPositions;
               std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	          std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	          if(newPreviousBoards.size() == 8) {
+	          std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	            newPreviousBoards[0] = this->board;
+	          } else if(newPreviousBoards.size() < 8) {
+	            newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	          }
+	          int NewNmove = this->Nmove + 1;
+	          int newCounterToDraw = 0;
               newBoard[square] = empty;
               newBoard[square - 8] = black_pawn;
 
               //And if the move does not lead to check it a possible move
               if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
               {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 0));
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 0));
+              }
+            } //Eventually getting promoted if it is moving to the last row
+            else if((square >= 8) && (this->board[square - 8] == empty)) {
+              ChessBoard newBoard = oldBoard;
+              std::array<int,2> newKingPositions = this->kingPositions;
+              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	          std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	          if(newPreviousBoards.size() == 8) {
+	          std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	            newPreviousBoards[0] = this->board;
+	          } else if(newPreviousBoards.size() < 8) {
+	            newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	          }
+	          int NewNmove = this->Nmove + 1;
+	          int newCounterToDraw = 0;
+              newBoard[square] = empty;
+              newBoard[square - 8] = black_knight;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 9));
               }
 
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 1) {
-                newBoard[square - 8] = black_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 9));
-                }
-
-                newBoard[square - 8] = black_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 6));
-                }
+              newBoard[square - 8] = black_queen;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 6));
               }
             }
 
             //Or eat on the right and left
-            if((square >= 8) && ((square % 8) < 7) && (PIECES_COLORS[this->board[square - 8 + 1]] == 1)) {
-              ChessBoard newBoard = this->board;
+            if((square >= 16) && ((square % 8) < 7) && (PIECES_COLORS[this->board[square - 8 + 1]] == 1)) {
+              ChessBoard newBoard = oldBoard;
               std::array<int,2> newKingPositions = this->kingPositions;
               std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	          std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	          if(newPreviousBoards.size() == 8) {
+	          std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	            newPreviousBoards[0] = this->board;
+	          } else if(newPreviousBoards.size() < 8) {
+	            newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	          }
+	          int NewNmove = this->Nmove + 1;
+	          int newCounterToDraw = 0;
               newBoard[square] = empty;
               newBoard[square - 8 + 1] = black_pawn;
 
               //And if the move does not lead to check it a possible move
               if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
               {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 1));
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 1));
               }
-
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 1) {
-                newBoard[square - 8 + 1] = black_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 10));
-                }
-
-                newBoard[square - 8 + 1] = black_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 7));
-                }
-              }
-            }
-            if((square >= 8) && ((square % 8) > 0) && (PIECES_COLORS[this->board[square - 8 - 1]] == 1)) {
-              ChessBoard newBoard = this->board;
+            } //Eventually getting promoted if it is moving to the last row
+            else if((square >= 8) && ((square % 8) < 7) && (PIECES_COLORS[this->board[square - 8 + 1]] == 1)) {
+              ChessBoard newBoard = oldBoard;
               std::array<int,2> newKingPositions = this->kingPositions;
               std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	          std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	          if(newPreviousBoards.size() == 8) {
+	          std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	            newPreviousBoards[0] = this->board;
+	          } else if(newPreviousBoards.size() < 8) {
+	            newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	          }
+	          int NewNmove = this->Nmove + 1;
+	          int newCounterToDraw = 0;
+              newBoard[square] = empty;
+              newBoard[square - 8 + 1] = black_knight;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 10));
+              }
+
+              newBoard[square - 8 + 1] = black_queen;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 7));
+              }
+            }
+            if((square >= 16) && ((square % 8) > 0) && (PIECES_COLORS[this->board[square - 8 - 1]] == 1)) {
+              ChessBoard newBoard = oldBoard;
+              std::array<int,2> newKingPositions = this->kingPositions;
+              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	          std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	          if(newPreviousBoards.size() == 8) {
+	          std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	            newPreviousBoards[0] = this->board;
+	          } else if(newPreviousBoards.size() < 8) {
+	            newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	          }
+	          int NewNmove = this->Nmove + 1;
+	          int newCounterToDraw = 0;
               newBoard[square] = empty;
               newBoard[square - 8 - 1] = black_pawn;
 
               //And if the move does not lead to check it a possible move
               if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
               {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 2));
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 2));
+              }
+            }  //Eventually getting promoted if it is moving to the last row
+            else if((square >= 8) && ((square % 8) > 0) && (PIECES_COLORS[this->board[square - 8 - 1]] == 1)) {
+              ChessBoard newBoard = oldBoard;
+              std::array<int,2> newKingPositions = this->kingPositions;
+              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	          std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	          if(newPreviousBoards.size() == 8) {
+	          std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	            newPreviousBoards[0] = this->board;
+	          } else if(newPreviousBoards.size() < 8) {
+	            newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	          }
+	          int NewNmove = this->Nmove + 1;
+	          int newCounterToDraw = 0;
+              newBoard[square] = empty;
+              newBoard[square - 8 - 1] = black_knight;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 11));
               }
 
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 1) {
-                newBoard[square - 8 - 1] = black_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 11));
-                }
-
-                newBoard[square - 8 - 1] = black_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 8));
-                }
+              newBoard[square - 8 - 1] = black_queen;
+              //And if the move does not lead to check it a possible move
+              if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
+              {
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 8));
               }
             }
 
             //If it is in his starting cell it can move ahead of two cells too
             if(((square / 8) == 6) && (this->board[square - 8] == empty) && (this->board[square - 16] == empty)) {
-              ChessBoard newBoard = this->board;
+              ChessBoard newBoard = oldBoard;
               std::array<int,2> newKingPositions = this->kingPositions;
               std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	          std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	          if(newPreviousBoards.size() == 8) {
+	          std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	            newPreviousBoards[0] = this->board;
+	          } else if(newPreviousBoards.size() < 8) {
+	            newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	          }
+	          int NewNmove = this->Nmove + 1;
+	          int newCounterToDraw = 0;
               newBoard[square] = empty;
               newBoard[square - 16] = black_pawn2;
 
               //And if the move does not lead to check it a possible move
               if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
               {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 3));
+                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 3));
               }
             }
 
             //If it is in the 4th row, a capture en passant is possible
             if((square >= 24) && (square < 31)) {
               if((this->board[(square + 1)] == white_pawn2) && (this->board[square - 7] == empty)) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = 0;
                 newBoard[square] = empty;
                 newBoard[square + 1] = empty;
                 newBoard[square - 7] = black_pawn;
@@ -1288,7 +1709,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 4));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 4));
                 }
               }
             }
@@ -1296,9 +1717,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             //If it is in the 4th row, a capture en passant is possible
             if((square > 24) && (square <= 31)) {
               if((this->board[(square - 1)] == white_pawn2) && (this->board[square - 9] == empty)) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = 0;
                 newBoard[square] = empty;
                 newBoard[square - 1] = empty;
                 newBoard[square - 9] = black_pawn;
@@ -1306,103 +1736,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 5));
-                }
-              }
-            }
-            break;
-
-          case black_pawn2:
-            //A pawn can either move ahead of one step not eating
-            if((square >= 8) && (this->board[square - 8] == empty)) {
-              ChessBoard newBoard = this->board;
-              std::array<int,2> newKingPositions = this->kingPositions;
-              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
-              newBoard[square] = empty;
-              newBoard[square - 8] = black_pawn;
-
-              //And if the move does not lead to check it a possible move
-              if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-              {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 0));
-              }
-
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 1) {
-                newBoard[square - 8] = black_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 9));
-                }
-
-                newBoard[square - 8] = black_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 6));
-                }
-              }
-            }
-
-            //Or eat on the right and left
-            if((square >= 8) && ((square % 8) < 7) && (PIECES_COLORS[this->board[square - 8 + 1]] == 1)) {
-              ChessBoard newBoard = this->board;
-              std::array<int,2> newKingPositions = this->kingPositions;
-              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
-              newBoard[square] = empty;
-              newBoard[square - 8 + 1] = black_pawn;
-
-              //And if the move does not lead to check it a possible move
-              if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-              {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 1));
-              }
-
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 1) {
-                newBoard[square - 8 + 1] = black_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 10));
-                }
-
-                newBoard[square - 8 + 1] = black_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 7));
-                }
-              }
-            }
-            if((square >= 8) && ((square % 8) > 0) && (PIECES_COLORS[this->board[square - 8 - 1]] == 1)) {
-              ChessBoard newBoard = this->board;
-              std::array<int,2> newKingPositions = this->kingPositions;
-              std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
-              newBoard[square] = empty;
-              newBoard[square - 8 - 1] = black_pawn;
-
-              //And if the move does not lead to check it a possible move
-              if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-              {
-                possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 2));
-              }
-
-              //Eventually getting promoted if it is moving to the last row
-              if((square / 8) == 1) {
-                newBoard[square - 8 - 1] = black_knight;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 11));
-                }
-
-                newBoard[square - 8 - 1] = black_queen;
-                //And if the move does not lead to check it a possible move
-                if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
-                {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), PAWN, (63-square), 8));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), PAWN, (63-square), 5));
                 }
               }
             }
@@ -1415,32 +1749,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (9 * n)) < 64) && (((square + (9 * n)) % 8) != 0) && (check == 0))
             {
               if(this->board[square + (9 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (9 * n)] = black_bishop;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, (63-square), (6+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, (63-square), (6+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (9 * n)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (9 * n)] = black_bishop;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, (63-square), (6+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, (63-square), (6+n)));
                   }
                 }
               }
@@ -1451,32 +1803,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (9 * n)) >= 0) && (((square - (9 * n)) % 8) != 7) && (check == 0))
             {
               if(this->board[square - (9 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (9 * n)] = black_bishop;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, (63-square), (20+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, (63-square), (20+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (9 * n)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - (9 * n)] = black_bishop;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, (63-square), (20+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, (63-square), (20+n)));
                   }
                 }
               }
@@ -1489,32 +1859,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (7 * n)) < 64) && (((square + (7 * n)) % 8) != 7) && (check == 0))
             {
               if(this->board[square + (7 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (7 * n)] = black_bishop;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, (63-square), (13+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, (63-square), (13+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (7 * n)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (7 * n)] = black_bishop;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, (63-square), (13+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, (63-square), (13+n)));
                   }
                 }
               }
@@ -1525,32 +1913,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (7 * n)) >= 0) && (((square - (7 * n)) % 8) != 0) && (check == 0))
             {
               if(this->board[square - (7 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (7 * n)] = black_bishop;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, (63-square), (n-1)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, (63-square), (n-1)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (7 * n)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - (7 * n)] = black_bishop;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), BISHOP, (63-square), (n-1)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), BISHOP, (63-square), (n-1)));
                   }
                 }
               }
@@ -1566,9 +1972,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (8 * i)) < 64) && (check == 0))
             {
               if(this->board[square + (8 * i)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 if(square == 56) {
                   newPossibleCastling[1][0] = 0;
                 }
@@ -1581,16 +1996,25 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, (63-square), (13+i)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, (63-square), (13+i)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (8 * i)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   if(square == 56) {
                     newPossibleCastling[1][0] = 0;
                   }
@@ -1603,7 +2027,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, (63-square), (13+i)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, (63-square), (13+i)));
                   }
                 }
               }
@@ -1614,9 +2038,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (8 * i)) >= 0) && (check == 0))
             {
               if(this->board[square - (8 * i)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 if(square == 56) {
                   newPossibleCastling[1][0] = 0;
                 }
@@ -1629,16 +2062,25 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, (63-square), (i-1)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, (63-square), (i-1)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (8 * i)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   if(square == 56) {
                     newPossibleCastling[1][0] = 0;
                   }
@@ -1651,7 +2093,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, (63-square), (i-1)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, (63-square), (i-1)));
                   }
                 }
               }
@@ -1664,9 +2106,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while((((square + j) % 8) != 0) && (check == 0))
             {
               if(this->board[square + j] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 if(square == 56) {
                   newPossibleCastling[1][0] = 0;
                 }
@@ -1679,16 +2130,25 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, (63-square), (6+j)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, (63-square), (6+j)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + j]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   if(square == 56) {
                     newPossibleCastling[1][0] = 0;
                   }
@@ -1701,7 +2161,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, (63-square), (6+j)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, (63-square), (6+j)));
                   }
                 }
               }
@@ -1712,9 +2172,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while((square - j >= 0) && (((square - j) % 8) != 7) && (check == 0))
             {
               if(this->board[square - j] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 if(square == 56) {
                   newPossibleCastling[1][0] = 0;
                 }
@@ -1727,16 +2196,25 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, (63-square), (20+j)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, (63-square), (20+j)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - j]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   if(square == 56) {
                     newPossibleCastling[1][0] = 0;
                   }
@@ -1749,7 +2227,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), ROOK, (63-square), (20+j)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), ROOK, (63-square), (20+j)));
                   }
                 }
               }
@@ -1765,32 +2243,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (8 * i)) < 64) && (check == 0))
             {
               if(this->board[square + (8 * i)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (8 * i)] = black_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (27+i)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (27+i)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (8 * i)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (8 * i)] = black_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (27+i)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (27+i)));
                   }
                 }
               }
@@ -1801,32 +2297,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (8 * i)) >= 0) && (check == 0))
             {
               if(this->board[square - (8 * i)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (8 * i)] = black_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (i-1)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (i-1)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (8 * i)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - (8 * i)] = black_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (i-1)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (i-1)));
                   }
                 }
               }
@@ -1839,32 +2353,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while((((square + j) % 8) != 0) && (check == 0))
             {
               if(this->board[square + j] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + j] = black_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (13+j)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (13+j)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + j]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + j] = black_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (13+j)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (13+j)));
                   }
                 }
               }
@@ -1875,32 +2407,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while((square - j >= 0) && (((square - j) % 8) != 7) && (check == 0))
             {
               if(this->board[square - j] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - j] = black_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (41+j)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (41+j)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - j]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - j] = black_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (41+j)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (41+j)));
                   }
                 }
               }
@@ -1913,32 +2463,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (9 * n)) < 64) && (((square + (9 * n)) % 8) != 0) && (check == 0))
             {
               if(this->board[square + (9 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (9 * n)] = black_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (20+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (20+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (9 * n)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (9 * n)] = black_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (20+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (20+n)));
                   }
                 }
               }
@@ -1949,32 +2517,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (9 * n)) >= 0) && (((square - (9 * n)) % 8) != 7) && (check == 0))
             {
               if(this->board[square - (9 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (9 * n)] = black_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (48+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (48+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (9 * n)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square - (9 * n)] = black_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (48+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (48+n)));
                   }
                 }
               }
@@ -1987,32 +2573,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square + (7 * n)) < 64) && (((square + (7 * n)) % 8) != 7) && (check == 0))
             {
               if(this->board[square + (7 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square + (7 * n)] = black_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (34+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (34+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square + (7 * n)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = 0;
                   newBoard[square] = empty;
                   newBoard[square + (7 * n)] = black_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (34+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (34+n)));
                   }
                 }
               }
@@ -2023,32 +2627,50 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             while(((square - (7 * n)) >= 0) && (((square - (7 * n)) % 8) != 0) && (check == 0))
             {
               if(this->board[square - (7 * n)] == empty) {
-                ChessBoard newBoard = this->board;
+                ChessBoard newBoard = oldBoard;
                 std::array<int,2> newKingPositions = this->kingPositions;
                 std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	            std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	            if(newPreviousBoards.size() == 8) {
+	            std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	              newPreviousBoards[0] = this->board;
+	            } else if(newPreviousBoards.size() < 8) {
+	              newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	            }
+	            int NewNmove = this->Nmove + 1;
+	            int newCounterToDraw = this->CounterToDraw + 1;
                 newBoard[square] = empty;
                 newBoard[square - (7 * n)] = black_queen;
 
                 //And if the move does not lead to check it a possible move
                 if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                 {
-                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (6+n)));
+                  possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (6+n)));
                 }
               }
               else 
               {
                 check = 1;
                 if(PIECES_COLORS[this->board[square - (7 * n)]] == 1) {
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = this->CounterToDraw + 1;
                   newBoard[square] = empty;
                   newBoard[square - (7 * n)] = black_queen;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), QUEEN, (63-square), (6+n)));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), QUEEN, (63-square), (6+n)));
                   }
                 }
               }
@@ -2069,16 +2691,28 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                 //And if it is empty or contains an enemy piece
                 if(PIECES_COLORS[this->board[(8 * i) + j]] != -1) {
                   //It is possible to move there
-                  ChessBoard newBoard = this->board;
+                  ChessBoard newBoard = oldBoard;
                   std::array<int,2> newKingPositions = this->kingPositions;
                   std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+	              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+	              if(newPreviousBoards.size() == 8) {
+	              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+	                newPreviousBoards[0] = this->board;
+	              } else if(newPreviousBoards.size() < 8) {
+	                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+	              }
+	              int NewNmove = this->Nmove + 1;
+	              int newCounterToDraw = this->CounterToDraw + 1;
+	              if(PIECES_COLORS[this->board[(8 * i) + j]] == 1) {
+	              	newCounterToDraw = 0;
+	              }
                   newBoard[square] = empty;
                   newBoard[(8 * i) + j] = black_knight;
 
                   //And if the move does not lead to check it a possible move
                   if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                   {
-                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), KNIGHT, (63-square), n));
+                    possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), KNIGHT, (63-square), n));
                   }
                 }
               }
@@ -2098,9 +2732,21 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                     //And if it is empty or contains an enemy piece
                     if(PIECES_COLORS[this->board[square - (8 * i) - j]] != -1) {
                       //The move is possible
-                      ChessBoard newBoard = this->board;
+                      ChessBoard newBoard = oldBoard;
                       std::array<int,2> newKingPositions = this->kingPositions;
                       std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+		              std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+		              if(newPreviousBoards.size() == 8) {
+		              std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+		                newPreviousBoards[0] = this->board;
+		              } else if(newPreviousBoards.size() < 8) {
+		                newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+		              }
+		              int NewNmove = this->Nmove + 1;
+		              int newCounterToDraw = this->CounterToDraw + 1;
+		              if(PIECES_COLORS[this->board[square - (8 * i) - j]] == 1) {
+		              	newCounterToDraw = 0;
+		              }
                       newPossibleCastling[1][0] = 0;
                       newPossibleCastling[1][1] = 0;
                       newKingPositions[1] = square - (8 * i) - j;
@@ -2110,7 +2756,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
                       //And if the move does not lead to check it a possible move
                       if(ChessState::isUnderAttack(newBoard, newKingPositions[1], -1 * this->player) == false)
                       {
-                        possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), KING, (63-square), ((3*i)+j+4)));
+                        possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), KING, (63-square), ((3*i)+j+4)));
                       }
                     }
                   }
@@ -2131,9 +2777,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
         if((this->board[0] == white_rook) && (this->board[1] == empty) && (this->board[2] == empty) && (this->board[3] == empty) && (this->board[4] == white_king)) {
           if((ChessState::isUnderAttack(this->board, 2, -1) == false) && (ChessState::isUnderAttack(this->board, 3, -1) == false) && (ChessState::isUnderAttack(this->board, 4, -1) == false)) {
             //The castling is possible
-            ChessBoard newBoard = this->board;
+            ChessBoard newBoard = oldBoard;
             std::array<int,2> newKingPositions = this->kingPositions;
             std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+		    std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+		    if(newPreviousBoards.size() == 8) {
+		      std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+		      newPreviousBoards[0] = this->board;
+		    } else if(newPreviousBoards.size() < 8) {
+		      newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+		    }
+		    int NewNmove = this->Nmove + 1;
+		    int newCounterToDraw = this->CounterToDraw + 1;
             newPossibleCastling[0][0] = 0;
             newPossibleCastling[0][1] = 0;
             newKingPositions[0] = 2;
@@ -2141,7 +2796,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             newBoard[4] = empty;
             newBoard[2] = white_king;
             newBoard[3] = white_rook;
-            possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), KING, 4, 4));
+            possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), KING, 4, 4));
           }
         }
       }
@@ -2149,9 +2804,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
         if((this->board[4] == white_king) && (this->board[5] == empty) && (this->board[6] == empty) && (this->board[7] == white_rook)) {
           if((ChessState::isUnderAttack(this->board, 4, -1) == false) && (ChessState::isUnderAttack(this->board, 5, -1) == false) && (ChessState::isUnderAttack(this->board, 6, -1) == false)) {
             //The castling is possible
-            ChessBoard newBoard = this->board;
+            ChessBoard newBoard = oldBoard;
             std::array<int,2> newKingPositions = this->kingPositions;
             std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+		    std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+		    if(newPreviousBoards.size() == 8) {
+		      std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+		      newPreviousBoards[0] = this->board;
+		    } else if(newPreviousBoards.size() < 8) {
+		      newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+		    }
+		    int NewNmove = this->Nmove + 1;
+		    int newCounterToDraw = this->CounterToDraw + 1;
             newPossibleCastling[0][0] = 0;
             newPossibleCastling[0][1] = 0;
             newKingPositions[0] = 6;
@@ -2159,7 +2823,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             newBoard[4] = empty;
             newBoard[6] = white_king;
             newBoard[5] = white_rook;
-            possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), KING, 4, 9));
+            possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), KING, 4, 9));
           }
         }
       }
@@ -2169,9 +2833,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
         if((this->board[56] == black_rook) && (this->board[57] == empty) && (this->board[58] == empty) && (this->board[59] == empty) && (this->board[60] == black_king)) {
           if((ChessState::isUnderAttack(this->board, 58, 1) == false) && (ChessState::isUnderAttack(this->board, 59, 1) == false) && (ChessState::isUnderAttack(this->board, 60, 1) == false)) {
             //The castling is possible
-            ChessBoard newBoard = this->board;
+            ChessBoard newBoard = oldBoard;
             std::array<int,2> newKingPositions = this->kingPositions;
             std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+		    std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+		    if(newPreviousBoards.size() == 8) {
+		      std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+		      newPreviousBoards[0] = this->board;
+		    } else if(newPreviousBoards.size() < 8) {
+		      newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+		    }
+		    int NewNmove = this->Nmove + 1;
+		    int newCounterToDraw = this->CounterToDraw + 1;
             newPossibleCastling[1][0] = 0;
             newPossibleCastling[1][1] = 0;
             newKingPositions[1] = 58;
@@ -2179,7 +2852,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             newBoard[60] = empty;
             newBoard[58] = black_king;
             newBoard[59] = black_rook;
-            possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), KING, 3, 4));
+            possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), KING, 3, 4));
           }
         }
       }
@@ -2187,9 +2860,18 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
         if((this->board[60] == black_king) && (this->board[61] == empty) && (this->board[62] == empty) && (this->board[63] == black_rook)) {
           if((ChessState::isUnderAttack(this->board, 60, 1) == false) && (ChessState::isUnderAttack(this->board, 61, 1) == false) && (ChessState::isUnderAttack(this->board, 62, 1) == false)) {
             //The castling is possible
-            ChessBoard newBoard = this->board;
+            ChessBoard newBoard = oldBoard;
             std::array<int,2> newKingPositions = this->kingPositions;
             std::array<std::array<int,2>,2> newPossibleCastling = this->possibleCastling;
+		    std::vector<ChessBoard> newPreviousBoards = this->previousBoards;
+		    if(newPreviousBoards.size() == 8) {
+		      std::rotate(newPreviousBoards.begin(),newPreviousBoards.end()-1,newPreviousBoards.end());
+		      newPreviousBoards[0] = this->board;
+		    } else if(newPreviousBoards.size() < 8) {
+		      newPreviousBoards.insert(newPreviousBoards.begin(), this->board);
+		    }
+		    int NewNmove = this->Nmove + 1;
+		    int newCounterToDraw = this->CounterToDraw + 1;
             newPossibleCastling[1][0] = 0;
             newPossibleCastling[1][1] = 0;
             newKingPositions[1] = 62;
@@ -2197,7 +2879,7 @@ std::vector<ChessMove> ChessState::computeLegalMoves(void) {
             newBoard[60] = empty;
             newBoard[62] = white_king;
             newBoard[61] = white_rook;
-            possibleMoves.push_back(ChessMove(new ChessState(newBoard, newKingPositions, newPossibleCastling, (-1 * this->player)), KING, 3, 9));
+            possibleMoves.push_back(ChessMove(new ChessState(newBoard, newPreviousBoards, newKingPositions, newPossibleCastling, NewNmove, newCounterToDraw, (-1 * this->player)), KING, 3, 9));
           }
         }
       }
@@ -2297,7 +2979,9 @@ std::vector<double> ChessState::getFirstNetworkInput(void) {
       
       netInput.push_back(0);
       
-      netInput.push_back(0);
+      netInput.push_back(this->Repetition);
+      
+      netInput.push_back(this->Nmove);
   } else {
       for(int square=0;square<64;square++) {
           if((this->board[(63 - square)] == black_pawn) || (this->board[(63 - square)] == black_pawn2)) {
@@ -2383,7 +3067,9 @@ std::vector<double> ChessState::getFirstNetworkInput(void) {
       
       netInput.push_back(1);
       
-      netInput.push_back(0);
+      netInput.push_back(this->Repetition);
+      
+      netInput.push_back(this->Nmove);
   }
 
   return netInput;
@@ -2604,7 +3290,9 @@ void ChessState::printState(void) {
     std::cout << "White king position:" << this->kingPositions[0] << "\n";
     std::cout << "Black king position:" << this->kingPositions[1] << "\n";
     std::cout << "White possible castlings: left " << this->possibleCastling[0][0] << ", right " << this->possibleCastling[0][1] << "\n";
-    std::cout << "Black possible castlings: left " << this->possibleCastling[1][0] << ", right " << this->possibleCastling[1][1] << "\n\n\n";
+    std::cout << "Black possible castlings: left " << this->possibleCastling[1][0] << ", right " << this->possibleCastling[1][1] << "\n";
+    std::cout << "Size of previous boards: " << this->previousBoards.size() << "\n\n\n";
+    std::cout << "Repetitions: " << this->Repetition << "\n\n\n";
 }
 
 

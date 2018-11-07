@@ -1,5 +1,8 @@
-//To be compiled as g++ -ffast-math -O3 -std=c++11 -o SelfPlay SelfPlay.cpp MCTS.cpp Tree.cpp Chess.cpp net.c
 
+//To be compiled as g++ -std=c++11 -o SelfPlay SelfPlay.cpp MCTS.cpp Tree.cpp Game.cpp -I./Brian/inc/ -L./Brian/lib/ -lbrian
+//After having compiled Brian
+
+//TODO: Adjust brian to make the soft matt and the tanh automatically
 //TODO: Make tree of the Neural Network class as a pointer 
 
 #include "Chess.hpp"
@@ -14,9 +17,10 @@
 #include <fstream>
 
 
-#define MAX_N_MOVES 400
-#define N_GAMES 1000
+#define MAX_N_MOVES 240
+#define N_GAMES 100
 #define SHOW_GAMES 0
+#define RANDOM_PLAYER -1
 
 
 int main(int argc, char* argv[]) {
@@ -29,9 +33,6 @@ int main(int argc, char* argv[]) {
 	unsigned int results[3] = {0};
 
 	ChessState* currentState;
-
-	system("rm -rf TrainingSet");
-	system("mkdir TrainingSet");
 
 	char pieces_network_name[25] = "pieces_network.txt";
 	char pawn_network_name[25] = "pawn_network.txt";
@@ -57,14 +58,13 @@ int main(int argc, char* argv[]) {
     load_net(nets2[BISHOP], bishop_network_name);
     load_net(nets2[QUEEN], queen_network_name);
     load_net(nets2[KING], king_network_name);
-    
+
+
 	//Perform N_GAMES self games
 	for(int game=0;game<N_GAMES;game++) {
-		if(((game+1)%100) == 0) {
-			std::cout << "Playing game " << (game+1) << " of " << N_GAMES << "\n";
-			monitor << "Playing game " << (game+1) << " of " << N_GAMES << "\n";
-			monitor.flush();
-		}
+		std::cout << "Playing game " << (game+1) << " of " << N_GAMES << "\n";
+		monitor << "Playing game " << (game+1) << " of " << N_GAMES << "\n";
+		monitor.flush();
 
 		//Initialize the game
 		currentState = new ChessState();
@@ -75,7 +75,7 @@ int main(int argc, char* argv[]) {
 	    }
 
 		//Initialize a MCTS players
-		MCTS* neoCortex = new MCTS(currentState, net1, nets2, true);
+		MCTS* neoCortex = new MCTS(currentState, net1, nets2, false);
 		
 		int Nmoves = 0;
 		while((currentState->isFinalState() == 0) && (Nmoves < MAX_N_MOVES)) {
@@ -85,7 +85,12 @@ int main(int argc, char* argv[]) {
 				neoCortex->sweep();
 			}
 			
-			currentState = neoCortex->playBestMove();
+			if(currentState->getPlayer() == RANDOM_PLAYER) {
+				currentState = neoCortex->playRandomMove();
+			}
+			else {
+				currentState = neoCortex->playHighestFrequencyMove();
+			}
 	        
 	        if(SHOW_GAMES == 1) {
 	        	std::cout << "Move n. " << Nmoves << "\n";
@@ -94,8 +99,6 @@ int main(int argc, char* argv[]) {
 	        
 	        Nmoves++;
 		}
-
-		neoCortex->printBoardEvaluations();
 		
 		if(currentState->getWinner() == 1)
 		{
@@ -127,4 +130,3 @@ int main(int argc, char* argv[]) {
 
     monitor.close();
 }
-			

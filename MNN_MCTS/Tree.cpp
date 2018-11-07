@@ -193,10 +193,8 @@ Node* Node::getChildToPlay(void) {
   double Normalization = 0;
 
   for(int i=0;i<this->children.size();i++) {
-    //printf("this->children[%d]->getU = %lf\n", i, this->children[i]->getU());
     moveProbabilities.push_back(this->children[i]->getPlayProbability());
     Normalization += moveProbabilities[i];
-    //printf("moveProbabilities[%d] = %lf\n", i, moveProbabilities[i]);
   }
 
   double r = ((double)std::rand() / RAND_MAX) * Normalization;
@@ -281,13 +279,18 @@ double Node::getU(void) {
 
 //TO OPTIMIZE
 double Node::getPlayProbability(void) {
-  double Normalization = 0;
+  double Normalization1 = 0;
+  double Normalization2 = 0;
     
+
   std::vector<Node*> brothers = this->parent->getChildren();
   for(std::vector<Node*>::iterator bro = brothers.begin(); bro != brothers.end(); ++bro) {
-    Normalization += pow((*bro)->getNumberOfVisits(), (1. / MCTS_tau));
+    Normalization1 += (*bro)->getNumberOfVisits();
   }
-  return (pow(this->n, (1. / MCTS_tau)) / Normalization);
+  for(std::vector<Node*>::iterator bro = brothers.begin(); bro != brothers.end(); ++bro) {
+    Normalization2 += pow(((*bro)->getNumberOfVisits() / Normalization1), (1. / MCTS_tau));
+  }
+  return (pow((this->getNumberOfVisits() / Normalization1), (1. / MCTS_tau)) / Normalization2);
 }
 
 
@@ -497,6 +500,21 @@ void Node::printNetworkDatasets(void) {
     pieces_output << firstNetworkOutput[i] << " ";
   }
   pieces_output << "\n";
+
+  pieces_input.close();
+  pieces_output.close();
+  pawn_input.close();
+  pawn_output.close();
+  rook_input.close();
+  rook_output.close();
+  knight_input.close();
+  knight_output.close();
+  bishop_input.close();
+  bishop_output.close();
+  queen_input.close();
+  queen_output.close();
+  king_input.close();
+  king_output.close();
 }
 
 

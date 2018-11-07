@@ -25,10 +25,10 @@
 #include "net.h"
 
 
-#define MCTS_CP 1.
+#define MCTS_CP 1.414
 #define MCTS_tau 1.
 
-#define MCTS_NUMBER_OF_SWEEPS 100
+#define MCTS_NUMBER_OF_SWEEPS 400
 
 #define MCTS_EPSILON 0.25
 #define MCTS_ALPHA 0.3

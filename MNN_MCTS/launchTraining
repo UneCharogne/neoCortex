@@ -1,0 +1,12 @@
+mkdir NewNetworks
+
+gcc -ffast-math -O3 -o train.o train.c net.c -lm
+
+piecename=$1
+
+echo "Training ${piecename}'s network"
+echo ""
+
+time ./train.o $piecename
+
+cp ${piecename}_network_new.txt NewNetworks/${piecename}_network.txt

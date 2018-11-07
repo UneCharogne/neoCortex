@@ -15,6 +15,10 @@
 #ifndef CHESS_HPP
 #define CHESS_HPP
 
+#ifdef __linux__
+#include <typeinfo>
+#endif
+
 #include <vector>
 #include <string>
 #include <array>
@@ -76,6 +80,8 @@ const std::array<std::array<int,2>,8> KNIGHT_JUMPS = {{{-2,-1},{-2,1},{-1,-2},{-
 
 #define MAX_SIMULATION_LENGTH 1000
 
+#define MAX_COUNTER_TO_DRAW 50
+
 class ChessState;
 
 //Class representing a move
@@ -101,10 +107,17 @@ class ChessState {
     int player;
     //Board
     ChessBoard board;
+    //Previous 4 boards
+    std::vector<ChessBoard> previousBoards;
     //Position of the kings
     std::array<int,2> kingPositions;
     //Is castle still legal
     std::array<std::array<int,2>,2> possibleCastling;
+    //Number of the move
+    int Nmove;
+    //Counter to draw
+    int CounterToDraw;
+    int Repetition;
     
     //Legal moves from this state
     std::vector<ChessMove> legalMoves;
@@ -117,7 +130,7 @@ class ChessState {
     
    public:
     //CONSTRUCTORS
-    ChessState(ChessBoard, std::array<int,2>, std::array<std::array<int,2>,2>, int);
+    ChessState(ChessBoard, std::vector<ChessBoard>, std::array<int,2>, std::array<std::array<int,2>,2>, int, int, int);
     ChessState(ChessBoard, std::array<int,2>, int);
     ChessState(ChessBoard, int);
     ChessState(void);

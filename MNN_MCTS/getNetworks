@@ -1,0 +1,8 @@
+cd Networks${1}
+
+for piecename in pieces pawn rook knight bishop queen king
+do
+	cp ${piecename}_network.txt ../${piecename}_network_${2}.txt
+done
+
+cd ..

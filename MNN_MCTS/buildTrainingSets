@@ -1,0 +1,30 @@
+rm -rf TrainingSet
+
+mkdir TrainingSet
+
+cp net.h TrainingSet/
+cp net.c TrainingSet/
+cp train.c TrainingSet/
+
+cp *_network.txt TrainingSet/
+
+
+for train in 0 1 2 3 4
+do
+
+	for piecename in pieces pawn rook knight bishop queen king
+	do
+		cat Training$train/TrainingSet/${piecename}_input.dat >> TrainingSet/${piecename}_input.dat
+		cat Training$train/TrainingSet/${piecename}_output.dat >> TrainingSet/${piecename}_output.dat
+
+	done
+
+	cat Training$train/TrainingSet/z.dat >> TrainingSet/z.dat
+
+done
+
+paste TrainingSet/pieces_output.dat TrainingSet/z.dat > TrainingSet/temp
+mv TrainingSet/temp TrainingSet/pieces_output.dat
+rm TrainingSet/z.dat
+
+cp launchTraining TrainingSet/
